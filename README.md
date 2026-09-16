@@ -15,11 +15,15 @@ backend/
     main.ts            # Inicialização do NestJS
     app.controller.ts  # Login, logout e painel
     gestao.controller.ts # Cadastros, simulação e histórico
-    server/            # Autenticação e consultas por empresa
+    server/            # MySQL, Redis, autenticação e consultas por empresa
+  migrations/          # Schema inicial do MySQL
   scripts/             # Cadastro dos dados de demonstração
   tests/               # Testes do isolamento e APIs
-  data/                # Banco SQLite existente
+  Dockerfile           # Imagem do NestJS
+  data/                # SQLite antigo, preservado e ignorado pelo Git
   package.json
+compose.yaml           # Frontend, backend, MySQL e Redis
+.env.example           # Configuração de desenvolvimento
 package.json           # Comandos para os dois projetos
 ```
 
@@ -29,22 +33,22 @@ Esse encaminhamento usa [rewrites do Next.js](https://nextjs.org/docs/app/api-re
 
 ## Como executar
 
-Requer Node.js 22.13 ou superior, com suporte a SQLite nativo.
+A execução recomendada usa Docker e Docker Compose:
 
 ```bash
-npm install
-npm run seed
-npm run dev:backend
+cp .env.example .env
+docker compose up -d --build
+docker compose exec backend node dist/scripts/seed.js
 ```
 
-Em outro terminal, na raiz, execute `npm run dev:frontend`. Abra `http://localhost:3000/login`. Use a senha `NexoDemo@2026` e o perfil correspondente:
+Se você já tiver um `.env`, preserve-o e ajuste as variáveis conforme o exemplo. O seed é explícito: iniciar containers não cria contas públicas automaticamente. Abra `http://localhost:3000/login`. Use a senha `NexoDemo@2026` e o perfil correspondente:
 
 | Empresa | Administrador | Gestor | Operador |
 | --- | --- | --- | --- |
 | Áurea | admin@aurea.com | gestor@aurea.com | operador@aurea.com |
 | Vertex | admin@vertex.com | gestor@vertex.com | operador@vertex.com |
 
-Essas são contas públicas de demonstração. O comando `seed` cria os registros sem sobrescrever os existentes. O banco fica em `backend/data/nexo.sqlite`; é possível mudar o caminho com `NEXO_DB_PATH`.
+Essas são contas públicas de demonstração. O comando `seed` cria os registros sem sobrescrever os existentes. Os dados ficam no MySQL, no volume `mysql_data`. As sessões ficam no Redis, no volume `redis_data`, com expiração de oito horas. O SQLite antigo permanece em disco, sem ser usado pela aplicação.
 
 ## Como funciona o multi-tenant
 
@@ -77,7 +81,7 @@ O `?` recebe o identificador da empresa da sessão. O servidor não utiliza uma 
 
 Foi escolhido **um banco compartilhado com isolamento por `tenant_id`** porque é uma estratégia simples para o escopo do teste: todas as empresas usam as mesmas tabelas e aplicação. Não é necessário manter um banco ou uma aplicação por empresa.
 
-O SQLite permite executar o projeto localmente sem instalar um serviço de banco. A responsabilidade dessa escolha é aplicar o filtro de empresa em toda consulta. As operações de cadastro, alteração e exclusão usam a empresa da sessão. Clientes e transportadoras de outra empresa não podem ser associados a uma simulação.
+O MySQL usa tabelas compartilhadas com índices por empresa e transações InnoDB. O Redis armazena sessões com TTL. A responsabilidade dessa escolha é aplicar o filtro de empresa em toda consulta. As operações de cadastro, alteração e exclusão usam a empresa da sessão. Clientes e transportadoras de outra empresa não podem ser associados a uma simulação.
 
 ## Onde está cada parte
 
@@ -92,7 +96,7 @@ O SQLite permite executar o projeto localmente sem instalar um serviço de banco
 | `backend/src/server/database.ts` | Abre o banco e cria as tabelas |
 | `backend/src/server/demo.ts` | Cadastra os dados fictícios, somente pelo comando `seed` |
 
-Autenticação e multi-tenant têm responsabilidades diferentes: a autenticação identifica quem está acessando; o filtro por empresa determina quais dados essa pessoa pode acessar. As senhas usam hash, e as sessões usam um cookie `HttpOnly`, expiram após oito horas e são revogadas no logout.
+Autenticação e multi-tenant têm responsabilidades diferentes: a autenticação identifica quem está acessando; o filtro por empresa determina quais dados essa pessoa pode acessar. As senhas usam hash, e o navegador recebe um cookie `HttpOnly`. O hash do token identifica uma sessão no Redis, com TTL de oito horas. No logout, a chave é removida. A empresa e o perfil são consultados no MySQL a cada requisição. Editar um usuário incrementa `session_version` na mesma transação da edição, invalidando imediatamente suas sessões antigas, mesmo que as chaves ainda não tenham expirado no Redis.
 
 ## Como explicar na entrevista
 
@@ -106,29 +110,72 @@ Para demonstrar, entre na Áurea, observe suas rotas, saia e entre na Vertex. O 
 npm test
 npm run typecheck
 npm run build
-npm run test:integration
+npm run docker:test
 ```
 
-Os testes verificam isolamento, credenciais, permissões, CRUD, validação, cálculo, histórico, persistência, expiração e logout. `test:integration` inicia uma API NestJS real com banco e porta temporários e encerra o processo ao terminar; não modifica os dados de desenvolvimento. Para testar as APIs, mantenha frontend e backend em execução e execute `npm run test:http` em outro terminal, usando o banco de demonstração.
+`npm test` executa os testes de cálculo sem precisar de serviços. `npm run docker:test` constrói a imagem de testes e executa os testes de MySQL, Redis e da API NestJS real. Eles criam bancos MySQL temporários com prefixo `nexo_test_`, removidos ao final, e usam o banco lógico 1 do Redis; a aplicação usa o banco lógico 0. A suíte cobre CRUD, permissões, isolamento, histórico, persistência e expiração das sessões.
 
+Para verificar o caminho completo pelo frontend, mantenha a aplicação e o seed em execução e rode `npm run test:http` na raiz (requer Node e `npm install` no host).
 O escopo implementado inclui login, painel, gestão de usuários, clientes, transportadoras, simulação de frete e histórico. Os indicadores da visão geral ainda são demonstrativos; não são métricas calculadas das simulações. Não há cadastro público de empresas: os usuários são cadastrados pelo administrador da empresa autenticada. Listagens não têm paginação neste escopo.
 
 O backend está no NestJS e valida a autenticação antes de passar a empresa às consultas. A execução atual pressupõe um servidor com disco persistente. Produção exige substituir as contas de demonstração, proteção contra tentativas repetidas de login e revisão da persistência para a hospedagem escolhida.
 
 
-## Configuração e execução separada
+## Docker, persistência e configuração
 
-Os comandos de cada projeto também podem ser executados dentro de sua pasta: `npm run dev`, `npm run build` e `npm start`.
+- MySQL: imagem `mysql:8.4`, volume persistente, usuário próprio da aplicação.
+- Redis: imagem `redis:7.4-alpine`, AOF habilitado, usado efetivamente para sessões.
+- Backend: NestJS em Node 22, usuário não root, conexão interna com `mysql:3306` e `redis:6379`.
+- Frontend: Next.js em modo standalone, encaminha `/api` ao backend.
 
-- `BACKEND_URL`: endereço interno do Nest usado pelo Next, padrão `http://127.0.0.1:3001`. Defina antes do build do frontend se mudar o endereço.
-- `FRONTEND_ORIGIN`: origem autorizada nas operações de escrita, incluindo login/logout pelo Nest, padrão `http://localhost:3000`. Em HTTPS, os cookies recebem `Secure`.
-- `PORT`: porta do backend, padrão `3001`.
-- `NEXO_DB_PATH`: caminho opcional do SQLite, relativo ao diretório do backend. Use o mesmo caminho no seed e na aplicação.
+Somente o frontend publica uma porta no host, restrita a `127.0.0.1`. MySQL, Redis e backend ficam na rede interna do Compose. Os serviços aguardam healthchecks das dependências; `/api/health` verifica MySQL e Redis. O Redis é obrigatório para autenticar: indisponibilidade não libera acesso sem sessão.
 
-Exporte as variáveis no terminal antes de executar os comandos. O backend escuta em `127.0.0.1`, adequado à execução local com os dois processos na mesma máquina. Para outra infraestrutura, ajuste a interface de rede e os endereços.
+```bash
+docker compose ps
+docker compose logs -f backend
+docker compose down
+```
 
-O comando de desenvolvimento do backend compila o TypeScript antes de iniciar. Após editar arquivos TypeScript do backend, reinicie esse comando para recompilar. Para produção local, execute `npm run build` na raiz e depois `npm start --workspace backend` e `npm start --workspace frontend` em terminais separados.
+`down` encerra containers e mantém os volumes. `down -v` também apaga os volumes e os dados, portanto não o utilize para apenas reiniciar.
 
+Variáveis de `.env` (o arquivo não é versionado):
+
+| Variável | Uso |
+| --- | --- |
+| `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD` | Banco e credenciais da aplicação |
+| `MYSQL_ROOT_PASSWORD` | Inicialização do MySQL e criação dos bancos temporários nos testes |
+| `FRONTEND_PORT` | Porta local do frontend, padrão 3000 |
+| `FRONTEND_ORIGIN` | Origem exata autorizada para escritas, padrão `http://localhost:3000` |
+
+O `.env.example` contém valores de desenvolvimento. Use senhas alfanuméricas nesse exemplo de URLs. Se mudar a porta, ajuste também `FRONTEND_ORIGIN`. Alterar senhas no `.env` não troca credenciais de um volume MySQL já inicializado.
+
+O Nest recebe `DATABASE_URL` e `REDIS_URL` do Compose. O Next recebe `BACKEND_URL` durante o build. As tabelas são inicializadas com `backend/migrations/001_initial.sql`; mudanças futuras de schema exigem novas migrações, não apenas editar esse arquivo.
+
+### Desenvolvimento sem container para o código
+
+Requer Node.js 22.13 ou superior. Inicie apenas a infraestrutura com portas locais:
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yaml up -d mysql redis
+npm install
+export DATABASE_URL='mysql://nexo:nexoDev2026@127.0.0.1:3307/nexo'
+export REDIS_URL='redis://127.0.0.1:6380'
+npm run dev:backend
+```
+
+Ajuste as credenciais de acordo com seu `.env`. Em outro terminal, execute `npm run dev:frontend`. Pare antes o frontend/backend do Compose se for usar as mesmas portas. O backend compila ao iniciar; reinicie o comando após editar TypeScript. Os arquivos `.env` não são carregados automaticamente nos comandos locais: exporte as variáveis no terminal.
+
+### Importar o SQLite antigo
+
+A aplicação agora usa somente MySQL. O arquivo antigo não é apagado nem incluído nas imagens. Antes de executar o seed, é possível importar usuários, empresas, cadastros, rotas, indicadores e histórico para um **MySQL vazio**:
+
+```bash
+docker compose run --rm -v "$(pwd)/backend/data:/legacy:ro" -e SQLITE_PATH=/legacy/nexo.sqlite backend node dist/scripts/import-sqlite.js
+```
+
+A importação é transacional e recusa um destino com registros. Não sobrescreve dados e abre o SQLite somente para leitura. Sessões antigas não são copiadas; faça login novamente. Após importar, o seed é opcional e apenas adiciona os registros demonstrativos ausentes.
+
+Referências: [MySQL2](https://sidorares.github.io/node-mysql2/docs), [cliente Redis para Node](https://redis.io/docs/latest/develop/clients/nodejs/) e [ordem de inicialização no Compose](https://docs.docker.com/compose/how-tos/startup-order/).
 
 ## Funcionalidades e permissões
 
