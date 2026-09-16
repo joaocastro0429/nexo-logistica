@@ -39,6 +39,25 @@ try {
   }
   assert.ok(ready, logs);
   await req('gestao/clientes', 'GET', '', undefined, 401);
+  const cadastro = { nome: 'Nova administradora', empresa: 'Nova empresa', email: 'nova@example.com', senha: 'NexoDemo@2026' };
+  await req('cadastro', 'POST', '', cadastro, 401, 'https://outra.example');
+  await req('cadastro', 'POST', '', { ...cadastro, senha: 'curta' }, 400);
+  await req('cadastro', 'POST', '', { ...cadastro, email: 'invalido' }, 400);
+  await req('cadastro', 'POST', '', { ...cadastro, empresa: ' ' }, 400);
+  await req('cadastro', 'POST', '', { ...cadastro, email: ' NOVA@example.com ', tenantId: 'aurea', perfil: 'Gestor' }, 201);
+  const nova = await login(cadastro.email);
+  const painelNovo = (await req('plataforma', 'GET', nova)).data;
+  assert.equal(painelNovo.sessao.perfil, 'Administrador');
+  assert.equal(painelNovo.sessao.empresa, cadastro.empresa);
+  assert.notEqual(painelNovo.sessao.tenantId, 'aurea');
+  assert.deepEqual(painelNovo.rotas, []);
+  assert.equal((await req('gestao/usuarios', 'GET', nova)).data.length, 1);
+  await req('gestao/usuarios/aurea-admin', 'GET', nova, undefined, 404);
+  const [antes] = await bancoTeste.db.pool.query('SELECT COUNT(*) AS total FROM empresas');
+  await req('cadastro', 'POST', '', cadastro, 409);
+  const [depois] = await bancoTeste.db.pool.query('SELECT COUNT(*) AS total FROM empresas');
+  assert.equal(depois[0].total, antes[0].total, 'Cadastro duplicado não deixa empresa órfã');
+  await req('sessao', 'DELETE', nova);
   const a = await login('admin@aurea.com');
   const b = await login('admin@vertex.com');
   const operador = await login('operador@aurea.com', 'Operador');

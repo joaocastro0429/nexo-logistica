@@ -12,6 +12,13 @@ export class AppController {
   @Get('health')
   async health() { return (await this.store).health(); }
 
+  @Post('cadastro')
+  async cadastrar(@Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    this.validarOrigem(request);
+    response.setHeader('Cache-Control', 'private, no-store');
+    return (await this.store).cadastrar(body);
+  }
+
   @Post('sessao')
   @HttpCode(200)
   async login(@Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response) {

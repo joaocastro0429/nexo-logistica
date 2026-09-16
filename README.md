@@ -112,7 +112,7 @@ npm run docker:test
 `npm test` executa os testes de cálculo sem precisar de serviços. `npm run docker:test` constrói a imagem de testes e executa os testes de MySQL, Redis e da API NestJS real. Eles criam bancos MySQL temporários com prefixo `nexo_test_`, removidos ao final, e usam o banco lógico 1 do Redis; a aplicação usa o banco lógico 0. A suíte cobre CRUD, permissões, isolamento, histórico, persistência e expiração das sessões.
 
 Para verificar o caminho completo pelo frontend, mantenha a aplicação e o seed em execução e rode `npm run test:http` na raiz (requer Node e `npm install` no host).
-O escopo implementado inclui login, painel, gestão de usuários, clientes, transportadoras, simulação de frete e histórico. Os indicadores da visão geral ainda são demonstrativos; não são métricas calculadas das simulações. Não há cadastro público de empresas: os usuários são cadastrados pelo administrador da empresa autenticada. Listagens não têm paginação neste escopo.
+O escopo implementado inclui login, painel, gestão de usuários, clientes, transportadoras, simulação de frete e histórico. Os indicadores da visão geral ainda são demonstrativos; não são métricas calculadas das simulações. A tela `/cadastro` cria uma nova empresa e sua primeira conta de Administrador. Para ingressar em uma empresa existente, gestores e operadores devem ser cadastrados pelo administrador autenticado. Listagens não têm paginação neste escopo.
 
 O backend está no NestJS e valida a autenticação antes de passar a empresa às consultas. A execução atual pressupõe um servidor com disco persistente. Produção exige substituir as contas de demonstração, proteção contra tentativas repetidas de login e revisão da persistência para a hospedagem escolhida.
 
@@ -201,10 +201,11 @@ Cada simulação concluída é salva automaticamente com data, usuário, cliente
 
 ## Endpoints do NestJS
 
-Todos os endpoints abaixo exigem sessão. Escritas exigem também origem autorizada. O prefixo é `/api`.
+Com exceção de `/cadastro`, os endpoints abaixo exigem sessão. Escritas exigem também origem autorizada. O prefixo é `/api`.
 
 | Método | Caminho | Ação |
 | --- | --- | --- |
+| POST | `/cadastro` | Criar empresa e primeiro administrador (público, origem validada) |
 | GET | `/gestao/:tipo?q=busca` | Listar/buscar cadastros |
 | GET | `/gestao/:tipo/:id` | Consultar um cadastro |
 | POST | `/gestao/:tipo` | Cadastrar |

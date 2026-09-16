@@ -1,3 +1,4 @@
+import { criarCadastro } from './cadastro';
 import { abrirRedis } from './redis';
 import { criarGestao } from './gestao.js';
 import { abrirBanco } from './database';
@@ -24,7 +25,7 @@ export async function openStore(url?: string, redisUrl?: string) {
     };
   }
 
-  return { health: async () => { await db.pool.query('SELECT 1'); await redis.ping(); return { status: 'ok' }; }, ...auth, ...criarGestao(gestaoRepository), buscarPainel, close: async () => { await redis.quit(); await db.close(); } };
+  return { health: async () => { await db.pool.query('SELECT 1'); await redis.ping(); return { status: 'ok' }; }, ...auth, cadastrar: criarCadastro(db), ...criarGestao(gestaoRepository), buscarPainel, close: async () => { await redis.quit(); await db.close(); } };
 }
 
 let store: ReturnType<typeof openStore> | undefined;

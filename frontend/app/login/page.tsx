@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react';
 import { ArrowRight, LockKeyhole, ShieldCheck, UserRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import './styles.css';
 
 import type { Perfil } from '../../lib/types';
 
@@ -59,18 +60,20 @@ export default function LoginPage() {
       </section>
 
       <section className="acesso-panel">
-        <div className="acesso-panel-head"><span className="overline">acesso à plataforma</span><h2>Bem-vindo de volta.</h2><p>Escolha seu perfil e acesse seu espaço de trabalho.</p></div>
+        <div className="acesso-panel-head"><span className="overline">acesso à plataforma</span><h2>Entrar na plataforma</h2><p>Já tem uma conta? Informe suas credenciais e o perfil associado a ela.</p></div>
         <form onSubmit={entrar} className="acesso-form">
           <label htmlFor="email">E-mail profissional</label>
-          <div className="input-wrap"><UserRound size={17} /><input id="email" type="email" placeholder="voce@empresa.com" value={email} onChange={(event) => setEmail(event.target.value)} /></div>
+          <div className="input-wrap"><UserRound size={17} /><input id="email" type="email" required autoComplete="username" placeholder="voce@empresa.com" value={email} onChange={(event) => setEmail(event.target.value)} /></div>
           <label htmlFor="senha">Senha</label>
-          <div className="input-wrap"><LockKeyhole size={17} /><input id="senha" type="password" placeholder="Digite sua senha" value={senha} onChange={(event) => setSenha(event.target.value)} /></div>
+          <div className="input-wrap"><LockKeyhole size={17} /><input id="senha" type="password" required autoComplete="current-password" placeholder="Digite sua senha" value={senha} onChange={(event) => setSenha(event.target.value)} /></div>
           <div className="perfil-heading"><label>Seu nível de acesso</label><span>3 perfis disponíveis</span></div>
           <div className="perfil-list">{perfis.map((item) => <button type="button" className={`perfil-option ${perfil === item.nome ? 'selecionado' : ''}`} key={item.nome} onClick={() => setPerfil(item.nome)}><span className="perfil-radio" /><span><strong>{item.nome}</strong><em>{item.descricao}</em></span></button>)}</div>
           {erro && <p className="form-error" role="alert">{erro}</p>}
           <button className="button button-primary acesso-submit" type="submit" disabled={enviando}>{enviando ? 'Entrando...' : 'Entrar na plataforma'} <ArrowRight size={17} /></button>
         </form>
         <p className="acesso-demo">Utilize o e-mail e a senha cadastrados na sua empresa. Selecione o perfil associado à sua conta.</p>
+        <a className="acesso-cadastro-link" href="/cadastro">Criar conta para minha empresa <ArrowRight size={15} /></a>
+        <p className="acesso-demo">Para participar de uma empresa já cadastrada, peça seu acesso ao administrador.</p>
       </section>
     </main>
   );
