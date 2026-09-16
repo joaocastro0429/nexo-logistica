@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.server-build/
+data/
+*.tsbuildinfo
+.env*
+dist/
+.agents/
+.codex/
