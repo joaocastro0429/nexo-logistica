@@ -14,7 +14,7 @@ ENV NODE_ENV=production HOST=0.0.0.0 PORT=3001
 WORKDIR /app/backend
 COPY --from=production-dependencies --chown=node:node /app/backend/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/backend/dist ./dist
-COPY --from=build --chown=node:node /app/backend/migrations ./migrations
+COPY --from=build --chown=node:node /app/backend/drizzle ./drizzle
 COPY --from=build --chown=node:node /app/backend/package.json ./package.json
 USER node
 EXPOSE 3001

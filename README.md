@@ -15,12 +15,13 @@ backend/
     main.ts            # Inicialização do NestJS
     app.controller.ts  # Login, logout e painel
     gestao.controller.ts # Cadastros, simulação e histórico
-    server/            # MySQL, Redis, autenticação e consultas por empresa
-  migrations/          # Schema inicial do MySQL
+    domain/             # Contratos de domínio e repositórios
+    infrastructure/    # Drizzle, schema MySQL e repositórios
+    server/             # Redis, autenticação e composição
+  drizzle/              # Migrações versionadas do MySQL
   scripts/             # Cadastro dos dados de demonstração
   tests/               # Testes do isolamento e APIs
   Dockerfile           # Imagem do NestJS
-  data/                # SQLite antigo, preservado e ignorado pelo Git
   package.json
 compose.yaml           # Frontend, backend, MySQL e Redis
 .env.example           # Configuração de desenvolvimento
@@ -48,7 +49,7 @@ Se você já tiver um `.env`, preserve-o e ajuste as variáveis conforme o exemp
 | Áurea | admin@aurea.com | gestor@aurea.com | operador@aurea.com |
 | Vertex | admin@vertex.com | gestor@vertex.com | operador@vertex.com |
 
-Essas são contas públicas de demonstração. O comando `seed` cria os registros sem sobrescrever os existentes. Os dados ficam no MySQL, no volume `mysql_data`. As sessões ficam no Redis, no volume `redis_data`, com expiração de oito horas. O SQLite antigo permanece em disco, sem ser usado pela aplicação.
+Essas são contas públicas de demonstração. O comando `seed` cria os registros sem sobrescrever os existentes. Os dados ficam no MySQL, no volume `mysql_data`. As sessões ficam no Redis, no volume `redis_data`, com expiração de oito horas. O backend usa Drizzle ORM para schema, migrações e acesso tipado aos dados.
 
 ## Como funciona o multi-tenant
 
@@ -68,14 +69,7 @@ if (!sessao) throw new UnauthorizedException('Sessão inválida ou expirada.');
 const dados = this.store.buscarPainel(sessao.tenantId);
 ```
 
-Em [backend/src/server/store.ts](backend/src/server/store.ts), as consultas aplicam o filtro:
-
-```sql
-SELECT id, nome, pedidos, previsao, status
-FROM rotas WHERE tenant_id = ? ORDER BY id
-```
-
-O `?` recebe o identificador da empresa da sessão. O servidor não utiliza uma empresa enviada pelo navegador para autorizar acesso. Indicadores e gráfico seguem a mesma regra. O perfil Administrador também fica restrito à própria empresa.
+O `tenantId` da sessão é enviado aos métodos do serviço e dos repositórios Drizzle. O servidor não utiliza uma empresa enviada pelo navegador para autorizar acesso. Indicadores e gráfico seguem a mesma regra. O perfil Administrador também fica restrito à própria empresa.
 
 ## Justificativa da escolha
 
@@ -88,13 +82,15 @@ O MySQL usa tabelas compartilhadas com índices por empresa e transações InnoD
 | Arquivo | Responsabilidade |
 | --- | --- |
 | `backend/src/app.controller.ts` | Valida a sessão e pede os dados da empresa |
-| `backend/src/server/store.ts` | Consulta os dados do painel com o filtro `tenant_id` |
+| `backend/src/server/store.ts` | Serviço principal: autenticação, gestão e composição dos repositórios |
 | `backend/src/gestao.controller.ts` | Endpoints autenticados dos cadastros e simulações |
 | `backend/src/server/gestao.ts` | CRUD, permissões, cálculo e persistência do histórico |
 | `frontend/app/plataforma/gestao.tsx` | Formulários, consultas e histórico no frontend |
 | `backend/src/server/auth.ts` | Verifica senha, cria sessão e encerra o acesso |
-| `backend/src/server/database.ts` | Abre o banco e cria as tabelas |
+| `backend/src/infrastructure/database/` | Conexão Drizzle, schema e migrações |
 | `backend/src/server/demo.ts` | Cadastra os dados fictícios, somente pelo comando `seed` |
+
+O fluxo principal é simples: `Controller -> Store/Service -> Repository -> MySQL`. O controller recebe a requisição, o store aplica as regras de negócio e o repository acessa o banco através do Drizzle. O Redis fica responsável somente pelas sessões.
 
 Autenticação e multi-tenant têm responsabilidades diferentes: a autenticação identifica quem está acessando; o filtro por empresa determina quais dados essa pessoa pode acessar. As senhas usam hash, e o navegador recebe um cookie `HttpOnly`. O hash do token identifica uma sessão no Redis, com TTL de oito horas. No logout, a chave é removida. A empresa e o perfil são consultados no MySQL a cada requisição. Editar um usuário incrementa `session_version` na mesma transação da edição, invalidando imediatamente suas sessões antigas, mesmo que as chaves ainda não tenham expirado no Redis.
 
@@ -149,7 +145,7 @@ Variáveis de `.env` (o arquivo não é versionado):
 
 O `.env.example` contém valores de desenvolvimento. Use senhas alfanuméricas nesse exemplo de URLs. Se mudar a porta, ajuste também `FRONTEND_ORIGIN`. Alterar senhas no `.env` não troca credenciais de um volume MySQL já inicializado.
 
-O Nest recebe `DATABASE_URL` e `REDIS_URL` do Compose. O Next recebe `BACKEND_URL` durante o build. As tabelas são inicializadas com `backend/migrations/001_initial.sql`; mudanças futuras de schema exigem novas migrações, não apenas editar esse arquivo.
+O Nest recebe `DATABASE_URL` e `REDIS_URL` do Compose. O Next recebe `BACKEND_URL` durante o build. As tabelas são inicializadas pelas migrações versionadas em `backend/drizzle`, aplicadas automaticamente na inicialização. Mudanças futuras exigem atualizar o schema e executar `npm run db:generate`.
 
 ### Desenvolvimento sem container para o código
 
@@ -165,17 +161,7 @@ npm run dev:backend
 
 Ajuste as credenciais de acordo com seu `.env`. Em outro terminal, execute `npm run dev:frontend`. Pare antes o frontend/backend do Compose se for usar as mesmas portas. O backend compila ao iniciar; reinicie o comando após editar TypeScript. Os arquivos `.env` não são carregados automaticamente nos comandos locais: exporte as variáveis no terminal.
 
-### Importar o SQLite antigo
-
-A aplicação agora usa somente MySQL. O arquivo antigo não é apagado nem incluído nas imagens. Antes de executar o seed, é possível importar usuários, empresas, cadastros, rotas, indicadores e histórico para um **MySQL vazio**:
-
-```bash
-docker compose run --rm -v "$(pwd)/backend/data:/legacy:ro" -e SQLITE_PATH=/legacy/nexo.sqlite backend node dist/scripts/import-sqlite.js
-```
-
-A importação é transacional e recusa um destino com registros. Não sobrescreve dados e abre o SQLite somente para leitura. Sessões antigas não são copiadas; faça login novamente. Após importar, o seed é opcional e apenas adiciona os registros demonstrativos ausentes.
-
-Referências: [MySQL2](https://sidorares.github.io/node-mysql2/docs), [cliente Redis para Node](https://redis.io/docs/latest/develop/clients/nodejs/) e [ordem de inicialização no Compose](https://docs.docker.com/compose/how-tos/startup-order/).
+Referências: [Drizzle ORM](https://orm.drizzle.team/docs/overview), [MySQL2](https://sidorares.github.io/node-mysql2/docs), [cliente Redis para Node](https://redis.io/docs/latest/develop/clients/nodejs/) e [ordem de inicialização no Compose](https://docs.docker.com/compose/how-tos/startup-order/).
 
 ## Funcionalidades e permissões
 

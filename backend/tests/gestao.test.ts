@@ -6,14 +6,15 @@ import { criarGestao, calcularFrete } from '../src/server/gestao';
 import { criarAutenticacao } from '../src/server/auth';
 import { cadastrarDemonstracao } from '../src/server/demo';
 import type { Sessao } from '../src/types';
+import { MySqlAutenticacaoRepository, MySqlGestaoRepository } from '../src/infrastructure/repositories/mysql.repositories';
 
 test('CRUD, permissões e relacionamentos respeitam a empresa; histórico preserva os valores', async () => {
     const bancoTeste = await fixture();
     const db = bancoTeste.db;
     try {
         (await cadastrarDemonstracao(db));
-        const store = criarGestao(db);
-        const auth = criarAutenticacao(db, bancoTeste.redis);
+        const store = criarGestao(new MySqlGestaoRepository(db.db));
+        const auth = criarAutenticacao(new MySqlAutenticacaoRepository(db.db), bancoTeste.redis);
         const sessao = async (email: string, perfil: string) => (await auth.session((await auth.login(email, 'NexoDemo@2026', perfil))!))!;
         const a = (await sessao('admin@aurea.com', 'Administrador'));
         const b = (await sessao('admin@vertex.com', 'Administrador'));
