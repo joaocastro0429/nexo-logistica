@@ -7,3 +7,4 @@ data/
 dist/
 .agents/
 .codex/
+!.env.example

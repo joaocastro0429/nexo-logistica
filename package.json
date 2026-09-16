@@ -14,7 +14,10 @@
     "test": "npm test --workspace backend",
     "typecheck": "npm run build --workspace backend && npm run typecheck --workspace frontend",
     "test:http": "npm run test:http --workspace backend",
-    "test:integration": "npm run test:integration --workspace backend"
+    "test:integration": "npm run test:integration --workspace backend",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:test": "docker compose --profile test run --build --rm tests"
   },
   "engines": {
     "node": ">=22.13.0"

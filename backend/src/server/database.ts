@@ -1,49 +1,36 @@
-import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { createPool, type PoolConnection, type RowDataPacket } from 'mysql2/promise';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
-// Um único banco atende todas as empresas.
-export function abrirBanco(path = process.env.NEXO_DB_PATH || resolve('data/nexo.sqlite')) {
-  if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
-  const db = new DatabaseSync(path);
-  db.exec(`
-    PRAGMA foreign_keys = ON;
-    PRAGMA journal_mode = WAL;
-    PRAGMA busy_timeout = 5000;
-    CREATE TABLE IF NOT EXISTS empresas (id TEXT PRIMARY KEY, nome TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS usuarios (
-      id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES empresas(id),
-      nome TEXT NOT NULL, email TEXT NOT NULL UNIQUE, senha_hash TEXT NOT NULL,
-      perfil TEXT NOT NULL CHECK(perfil IN ('Administrador', 'Gestor', 'Operador'))
-    );
-    CREATE INDEX IF NOT EXISTS usuarios_tenant ON usuarios(tenant_id);
-    CREATE TABLE IF NOT EXISTS sessoes (
-      token_hash TEXT PRIMARY KEY, usuario_id TEXT NOT NULL REFERENCES usuarios(id), expira INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS paineis (
-      tenant_id TEXT PRIMARY KEY REFERENCES empresas(id), resumo TEXT NOT NULL, eficiencia TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS rotas (
-      id TEXT NOT NULL, tenant_id TEXT NOT NULL REFERENCES empresas(id), nome TEXT NOT NULL,
-      pedidos INTEGER NOT NULL, previsao TEXT NOT NULL, status TEXT NOT NULL,
-      PRIMARY KEY(tenant_id, id)
-    );
-    CREATE TABLE IF NOT EXISTS clientes (
-      id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES empresas(id),
-      nome TEXT NOT NULL, email TEXT NOT NULL, telefone TEXT NOT NULL, documento TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS clientes_tenant ON clientes(tenant_id);
-    CREATE TABLE IF NOT EXISTS transportadoras (
-      id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES empresas(id),
-      nome TEXT NOT NULL, email TEXT NOT NULL, telefone TEXT NOT NULL,
-      taxa_base REAL NOT NULL, valor_kg REAL NOT NULL, valor_km REAL NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS transportadoras_tenant ON transportadoras(tenant_id);
-    CREATE TABLE IF NOT EXISTS simulacoes (
-      id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES empresas(id),
-      criada_em TEXT NOT NULL, dados TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS simulacoes_tenant ON simulacoes(tenant_id, criada_em);
-  `);
-  return db;
+type Valor = string | number | null;
+export async function abrirBanco(url = process.env.DATABASE_URL) {
+  if (!url) throw new Error('Defina DATABASE_URL para conectar ao MySQL.');
+  const pool = createPool({ uri: url, connectionLimit: 10, decimalNumbers: true, charset: 'utf8mb4' });
+  // Cada transação usa sua própria conexão, inclusive com requisições simultâneas.
+  const contexto = new AsyncLocalStorage<PoolConnection>();
+  function prepare(sql: string) {
+    const executar = async (values: Valor[]) => (await (contexto.getStore() || pool).execute(sql, values))[0];
+    return {
+      get: async (...values: Valor[]) => (await executar(values) as RowDataPacket[])[0],
+      all: async (...values: Valor[]) => await executar(values) as RowDataPacket[],
+      run: async (...values: Valor[]) => { await executar(values); },
+    };
+  }
+  async function transaction<T>(work: () => Promise<T>): Promise<T> {
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const result = await contexto.run(connection, work);
+      await connection.commit();
+      return result;
+    } catch (error) { await connection.rollback(); throw error; }
+    finally { connection.release(); }
+  }
+  try {
+    const schema = await readFile(resolve(__dirname, '../../../migrations/001_initial.sql'), 'utf8');
+    for (const sql of schema.split(';').filter(sql => sql.trim())) await pool.query(sql);
+  } catch (error) { await pool.end(); throw error; }
+  return { prepare, transaction, close: () => pool.end() };
 }
+export type Banco = Awaited<ReturnType<typeof abrirBanco>>;

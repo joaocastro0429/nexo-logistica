@@ -1,3 +1,4 @@
+import { fixture } from '../dist/tests/fixture.js';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -9,14 +10,14 @@ import { once } from 'node:events';
 
 // Executa a API real em processo separado e banco temporário, sem modificar os dados locais.
 const cwd = join(dirname(fileURLToPath(import.meta.url)), '..');
-const dir = mkdtempSync(join(tmpdir(), 'nexo-api-'));
+const bancoTeste = await fixture();
 const reserva = createServer();
 reserva.listen(0, '127.0.0.1');
 await once(reserva, 'listening');
 const port = reserva.address().port;
 await new Promise(resolve => reserva.close(resolve));
 const base = `http://127.0.0.1:${port}`;
-const env = { ...process.env, PORT: String(port), FRONTEND_ORIGIN: base, NEXO_DB_PATH: join(dir, 'test.sqlite') };
+const env = { ...process.env, PORT: String(port), FRONTEND_ORIGIN: base, DATABASE_URL: bancoTeste.url };
 const seed = spawnSync(process.execPath, ['dist/scripts/seed.js'], { cwd, env, encoding: 'utf8' });
 assert.equal(seed.status, 0, seed.stderr);
 const server = spawn(process.execPath, ['dist/src/main.js'], { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -84,5 +85,5 @@ try {
   const exit = once(server, 'exit');
   server.kill('SIGTERM');
   await exit;
-  rmSync(dir, { recursive: true, force: true });
+  await bancoTeste.close();
 }

@@ -1,8 +1,9 @@
 import { abrirBanco } from '../src/server/database';
 import { cadastrarDemonstracao } from '../src/server/demo';
 
-const db = abrirBanco();
-try {
-  cadastrarDemonstracao(db);
-  console.log('Empresas Áurea e Vertex cadastradas. Consulte os acessos no README.');
-} finally { db.close(); }
+async function main() {
+  const db = await abrirBanco();
+  try { await cadastrarDemonstracao(db); console.log('Dados de demonstração cadastrados no MySQL.'); }
+  finally { await db.close(); }
+}
+main().catch(error => { console.error(error); process.exitCode = 1; });
