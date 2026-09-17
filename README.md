@@ -1,6 +1,14 @@
 # Nexo
 
-Interface de logística com frontend Next.js e backend NestJS separados. As páginas, os estilos e os dados existentes foram preservados.
+Interface de logística com frontend Next.js e backend NestJS separados. O painel apresenta indicadores e insights calculados sobre o histórico de simulações.
+
+## Uso de IA e contexto de desenvolvimento
+
+O projeto foi desenvolvido em etapas com auxílio do Codex. O processo relatado
+e os artefatos disponíveis estão documentados em [Uso de IA](docs/uso-de-ia.md).
+As orientações para próximas alterações estão em [AGENTS.md](AGENTS.md).
+Esses dois arquivos foram criados após a implementação para registrar o
+contexto de desenvolvimento e orientar a continuidade do trabalho.
 
 ## Estrutura
 
@@ -64,12 +72,13 @@ O fluxo é:
 A regra principal está em [backend/src/app.controller.ts](backend/src/app.controller.ts):
 
 ```ts
-const sessao = this.store.session(request.cookies?.['nexo-sessao']);
+const store = await this.store;
+const sessao = await store.session(request.cookies?.['nexo-sessao']);
 if (!sessao) throw new UnauthorizedException('Sessão inválida ou expirada.');
-const dados = this.store.buscarPainel(sessao.tenantId);
+const dados = await store.buscarPainel(sessao.tenantId);
 ```
 
-O `tenantId` da sessão é enviado aos métodos do serviço e dos repositórios Drizzle. O servidor não utiliza uma empresa enviada pelo navegador para autorizar acesso. Indicadores e gráfico seguem a mesma regra. O perfil Administrador também fica restrito à própria empresa.
+O `tenantId` da sessão é enviado aos métodos do serviço e dos repositórios Drizzle. O servidor não utiliza uma empresa enviada pelo navegador para autorizar acesso. Indicadores, gráfico e insights seguem a mesma regra. O perfil Administrador também fica restrito à própria empresa.
 
 ## Justificativa da escolha
 
@@ -98,7 +107,7 @@ Autenticação e multi-tenant têm responsabilidades diferentes: a autenticaçã
 
 > Usei um banco compartilhado. Cada usuário está vinculado a uma empresa, e cada registro tem um tenant_id. Após o login, o servidor identifica a empresa pela sessão e filtra as consultas por esse identificador. Assim, a Áurea só acessa dados da Áurea e a Vertex só acessa dados da Vertex. Escolhi essa abordagem pela simplicidade de implementação e manutenção no escopo do teste.
 
-Para demonstrar, entre na Áurea, observe suas rotas, saia e entre na Vertex. O nome da empresa, as rotas, os indicadores e o gráfico mudam. Para comparar simultaneamente, use perfis separados do navegador, pois as abas compartilham a sessão.
+Para demonstrar, entre na Áurea e salve uma simulação. Depois entre na Vertex: o histórico e os indicadores dessa empresa não incluem a simulação da Áurea. Empresas sem simulações exibem indicadores zerados. Para comparar simultaneamente, use perfis separados do navegador, pois as abas compartilham a sessão.
 
 ## Testes e limites
 
@@ -109,10 +118,10 @@ npm run build
 npm run docker:test
 ```
 
-`npm test` executa os testes de cálculo sem precisar de serviços. `npm run docker:test` constrói a imagem de testes e executa os testes de MySQL, Redis e da API NestJS real. Eles criam bancos MySQL temporários com prefixo `nexo_test_`, removidos ao final, e usam o banco lógico 1 do Redis; a aplicação usa o banco lógico 0. A suíte cobre CRUD, permissões, isolamento, histórico, persistência e expiração das sessões.
+`npm test` executa os testes de cálculo de frete, indicadores, insights, importação e integrações sem precisar de MySQL/Redis. O teste HTTP de upload/SSE usa uma porta temporária local e persistência simulada. `npm run docker:test` constrói a imagem de testes e executa os testes de MySQL, Redis e da API NestJS real. Eles criam bancos MySQL temporários com prefixo `nexo_test_`, removidos ao final, e usam o banco lógico 1 do Redis; a aplicação usa o banco lógico 0. A suíte cobre CRUD, permissões, isolamento, histórico, persistência e expiração das sessões.
 
 Para verificar o caminho completo pelo frontend, mantenha a aplicação e o seed em execução e rode `npm run test:http` na raiz (requer Node e `npm install` no host).
-O escopo implementado inclui login, painel, gestão de usuários, clientes, transportadoras, simulação de frete e histórico. Os indicadores da visão geral ainda são demonstrativos; não são métricas calculadas das simulações. A tela `/cadastro` cria uma nova empresa e sua primeira conta de Administrador. Para ingressar em uma empresa existente, gestores e operadores devem ser cadastrados pelo administrador autenticado. Listagens não têm paginação neste escopo.
+O escopo implementado inclui login, painel, gestão de usuários, clientes, transportadoras, simulação de frete e histórico. Os indicadores e insights da visão geral são calculados a partir das simulações persistidas da empresa. A tela `/cadastro` cria uma nova empresa e sua primeira conta de Administrador. Para ingressar em uma empresa existente, gestores e operadores devem ser cadastrados pelo administrador autenticado. Listagens não têm paginação neste escopo.
 
 O backend está no NestJS e valida a autenticação antes de passar a empresa às consultas. A execução atual pressupõe um servidor com disco persistente. Produção exige substituir as contas de demonstração, proteção contra tentativas repetidas de login e revisão da persistência para a hospedagem escolhida.
 
@@ -212,6 +221,7 @@ Com exceção de `/cadastro`, os endpoints abaixo exigem sessão. Escritas exige
 | PUT | `/gestao/:tipo/:id` | Atualizar os campos do cadastro |
 | DELETE | `/gestao/:tipo/:id` | Remover |
 | POST | `/simulacoes` | Calcular e salvar uma simulação |
+| GET | `/plataforma` | Sessão, indicadores, evolução diária, trajetos e insights da empresa |
 | GET | `/simulacoes` | Histórico da empresa |
 | GET | `/simulacoes/:id` | Detalhes de uma simulação |
 
@@ -239,3 +249,57 @@ Exemplo de corpo para simulação (os IDs devem pertencer à empresa autenticada
   "clienteId": "aurea-cliente"
 }
 ```
+
+## Dashboard e insights das simulações
+
+A Visão geral usa os snapshots do histórico e é recarregada ao retornar a essa
+seção. Todos os perfis autenticados podem consultar o painel da própria empresa.
+As antigas tabelas demonstrativas de painéis e rotas são preservadas, mas não
+alimentam mais o dashboard. Não houve alteração de schema.
+
+- **Simulações realizadas:** quantidade de registros de todo o histórico.
+- **Valor total estimado:** soma dos fretes simulados, com acumulação em centavos.
+- **Frete médio estimado:** total dividido pelo número de simulações.
+- **Trajetos mais simulados:** cinco pares origem/destino com maior quantidade,
+  acompanhados do frete médio; espaços nas extremidades e diferenças entre
+  maiúsculas/minúsculas são ignorados no agrupamento. O sentido é preservado.
+- **Simulações por dia:** contagens dos últimos sete dias, incluindo hoje, em UTC.
+
+Esses indicadores permitem avaliar demanda por cotações e distribuição dos
+valores estimados. Cada simulação conta uma vez, inclusive cotações repetidas;
+eles não representam pedidos, entregas, despesas ou economia realizada.
+Sem registros, o painel mostra zeros e uma orientação para iniciar o histórico.
+
+Os insights são regras determinísticas executadas no backend, sem serviço de IA:
+
+- Cubagem: quando o peso cubado supera o real, informa a quantidade afetada e a
+  diferença da parcela por peso em relação ao peso real, usando a tarifa salva.
+- Concentração: com pelo menos três simulações, sinaliza transportadora com 70%
+  ou mais das cotações e sugere comparar alternativas com os mesmos parâmetros.
+- Variação: compara o frete médio dos últimos sete dias com os sete anteriores,
+  em UTC, exigindo três registros em cada janela, média anterior positiva e
+  variação absoluta de pelo menos 10%. O texto ressalta diferenças de carga e
+  trajeto; não atribui causalidade nem promete economia.
+
+As regras se baseiam nos dados históricos, mesmo após alterações ou remoções de
+cadastros. O histórico permite buscar por origem, destino, transportadora,
+cliente ou responsável e expandir os detalhes de cada simulação.
+Neste escopo, a agregação e a busca carregam o histórico completo, sem paginação;
+um volume maior exigirá agregações no banco e consultas paginadas.
+
+O seed reconhece erros de duplicidade tanto do driver quanto encapsulados pelo
+Drizzle, mantendo a execução repetida sem sobrescrever os registros existentes.
+
+## Integrações, upload, processamento assíncrono e tempo real
+
+A Simulação de frete permite preencher cidades consultando **ViaCEP** e
+**IBGE**. Administradores e gestores encontram o menu **Importações**, com
+upload de clientes por CSV (até 256 KiB e 500 registros), processamento em
+segundo plano e acompanhamento em tempo real por **SSE**.
+
+O executor roda em memória no backend: clientes ficam no MySQL, mas trabalhos
+não são retomados após reinício. CSV é o formato implementado; XLSX não está
+incluído. Reenvios podem duplicar clientes. Não houve alteração de schema.
+
+Consulte [a documentação completa](docs/integracoes-e-importacoes.md) para
+formato, exemplo, permissões, endpoints, arquitetura, demonstração e limites.

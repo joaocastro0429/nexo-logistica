@@ -7,7 +7,8 @@ async function ignorarDuplicata(operation: Promise<unknown>) {
   try {
     await operation;
   } catch (error) {
-    if ((error as { code?: string }).code !== 'ER_DUP_ENTRY') throw error;
+    const falha = error as { code?: string; cause?: { code?: string } };
+    if (falha.code !== 'ER_DUP_ENTRY' && falha.cause?.code !== 'ER_DUP_ENTRY') throw error;
   }
 }
 

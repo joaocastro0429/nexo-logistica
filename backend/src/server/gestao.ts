@@ -88,7 +88,7 @@ export function criarGestao(repository: GestaoRepository) {
     const atual = id ? await consultar(sessao, tabela, id) : null;
     if (tabela === 'usuarios') {
       if (atual?.perfil === 'Administrador' && values.perfil !== 'Administrador' && await repository.contarAdministradores(sessao.tenantId) <= 1) throw new ConflictException('A empresa precisa manter pelo menos um administrador.');
-      if (await repository.emailEmUso(String(values.email), id)) throw new ConflictException('E-mail indisponível.');
+      if (await repository.emailEmUso(String(values.email), id)) throw new ConflictException('Este e-mail já está cadastrado no Nexo (em qualquer empresa). Use outro e-mail para criar o usuário.');
     }
     const fieldMap: Record<string, string> = { senha_hash: 'senhaHash', taxa_base: 'taxaBase', valor_kg: 'valorKg', valor_km: 'valorKm' };
     const persistValues = Object.fromEntries(Object.entries(values).map(([key, value]) => [fieldMap[key] || key, value]));

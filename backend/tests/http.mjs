@@ -21,8 +21,11 @@ try {
   const pb = await (await fetch(`${base}/api/plataforma`, { headers: { Cookie: cb } })).json();
   assert.equal(pa.sessao.tenantId, 'aurea');
   assert.equal(pb.sessao.tenantId, 'vertex');
-  assert.notDeepEqual(pa.rotas, pb.rotas);
-  assert.notDeepEqual(pa.resumo, pb.resumo);
+  for (const [cookie, painel] of [[ca, pa], [cb, pb]]) {
+    const historico = await (await fetch(`${base}/api/simulacoes`, { headers: { Cookie: cookie } })).json();
+    assert.equal(painel.resumo[0].valor, String(historico.length));
+    assert.equal(painel.evolucao.length, 7);
+  }
   assert.equal((await fetch(`${base}/api/sessao`, { method: 'DELETE', headers: { Cookie: ca, Origin: 'https://outra-origem.example' } })).status, 403);
   assert.equal((await fetch(`${base}/api/sessao`, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: 'null' })).status, 400);
 } finally {

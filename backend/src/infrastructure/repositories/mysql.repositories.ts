@@ -1,8 +1,8 @@
 import { and, desc, eq, like, ne, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '../database';
-import { clientes, empresas, paineis, rotas, simulacoes, transportadoras, usuarios } from '../database/schema';
-import type { AutenticacaoRepository, DashboardRepository, GestaoRepository, Registro, Recurso, UsuarioPersistido } from '../../domain/repositories';
+import { clientes, empresas, simulacoes, transportadoras, usuarios } from '../database/schema';
+import type { AutenticacaoRepository, GestaoRepository, Registro, Recurso, UsuarioPersistido } from '../../domain/repositories';
 import type { Sessao } from '../../types';
 
 type DatabaseLike = DrizzleDatabase;
@@ -112,22 +112,5 @@ export class MySqlGestaoRepository implements GestaoRepository {
     const rows = await this.database.select({ dados: simulacoes.dados }).from(simulacoes)
       .where(eq(simulacoes.tenantId, tenantId)).orderBy(desc(simulacoes.criadaEm), simulacoes.id);
     return rows.map(row => row.dados);
-  }
-}
-
-export class MySqlDashboardRepository implements DashboardRepository {
-  constructor(private readonly database: DatabaseLike) {}
-
-  async buscarPainel(tenantId: string) {
-    const [panel] = await this.database.select({ resumo: paineis.resumo, eficiencia: paineis.eficiencia })
-      .from(paineis).where(eq(paineis.tenantId, tenantId)).limit(1);
-    const routeRows = await this.database.select({
-      id: rotas.id, nome: rotas.nome, pedidos: rotas.pedidos, previsao: rotas.previsao, status: rotas.status,
-    }).from(rotas).where(eq(rotas.tenantId, tenantId)).orderBy(rotas.id);
-    return {
-      resumo: panel ? JSON.parse(panel.resumo) as unknown[] : [],
-      eficiencia: panel ? JSON.parse(panel.eficiencia) as number[] : [],
-      rotas: routeRows as Registro[],
-    };
   }
 }

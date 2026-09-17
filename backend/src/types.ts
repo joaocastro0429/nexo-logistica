@@ -3,6 +3,7 @@ export type Sessao = { usuarioId: string; nome: string; perfil: Perfil; tenantId
 export type Painel = {
   sessao: Sessao;
   resumo: Array<{ titulo: string; valor: string; variacao: string }>;
-  rotas: Array<{ id: string; nome: string; pedidos: number; previsao: string; status: string }>;
-  eficiencia: number[];
+  rotas: Array<{ id: string; nome: string; quantidade: number; media: number }>;
+  evolucao: Array<{ data: string; quantidade: number }>;
+  insights: Array<{ titulo: string; descricao: string }>;
 };

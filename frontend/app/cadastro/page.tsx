@@ -1,13 +1,15 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
-import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import '../login/styles.css';
 
 export default function CadastroPage() {
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [concluido, setConcluido] = useState(false);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false);
 
   async function cadastrar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -45,8 +47,8 @@ export default function CadastroPage() {
           <label htmlFor="nome">Seu nome</label><div className="input-wrap"><input id="nome" name="nome" required maxLength={150} autoComplete="name" /></div>
           <label htmlFor="empresa">Nome da nova empresa</label><div className="input-wrap"><input id="empresa" name="empresa" required maxLength={150} autoComplete="organization" /></div>
           <label htmlFor="email">E-mail profissional</label><div className="input-wrap"><input id="email" name="email" type="email" required maxLength={254} autoComplete="username" /></div>
-          <label htmlFor="senha">Criar senha (mínimo 8 caracteres)</label><div className="input-wrap"><input id="senha" name="senha" type="password" required minLength={8} maxLength={256} autoComplete="new-password" /></div>
-          <label htmlFor="confirmacao">Confirmar senha</label><div className="input-wrap"><input id="confirmacao" name="confirmacao" type="password" required minLength={8} maxLength={256} autoComplete="new-password" /></div>
+          <label htmlFor="senha">Criar senha (mínimo 8 caracteres)</label><div className="input-wrap"><input id="senha" name="senha" type={mostrarSenha ? 'text' : 'password'} required minLength={8} maxLength={256} autoComplete="new-password" /><button type="button" className="senha-toggle" onClick={() => setMostrarSenha(v => !v)} aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={mostrarSenha}>{mostrarSenha ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>
+          <label htmlFor="confirmacao">Confirmar senha</label><div className="input-wrap"><input id="confirmacao" name="confirmacao" type={mostrarConfirmacao ? 'text' : 'password'} required minLength={8} maxLength={256} autoComplete="new-password" /><button type="button" className="senha-toggle" onClick={() => setMostrarConfirmacao(v => !v)} aria-label={mostrarConfirmacao ? 'Ocultar confirmar senha' : 'Mostrar confirmar senha'} aria-pressed={mostrarConfirmacao}>{mostrarConfirmacao ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>
           {erro && <p className="form-error" role="alert">{erro}</p>}
           <button className="button button-primary acesso-submit" type="submit" disabled={enviando}>{enviando ? 'Criando conta...' : 'Criar conta e empresa'} <ArrowRight size={17} /></button>
         </form>

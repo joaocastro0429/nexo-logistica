@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
-import { ArrowRight, LockKeyhole, ShieldCheck, UserRound } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, LockKeyhole, ShieldCheck, UserRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import './styles.css';
 
@@ -18,6 +18,7 @@ export default function LoginPage() {
   const [perfil, setPerfil] = useState<Perfil>('Administrador');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [mostrarSenha, setMostrarSenha] = useState(false);
   const [erro, setErro] = useState('');
 
   const [enviando, setEnviando] = useState(false);
@@ -65,7 +66,7 @@ export default function LoginPage() {
           <label htmlFor="email">E-mail profissional</label>
           <div className="input-wrap"><UserRound size={17} /><input id="email" type="email" required autoComplete="username" placeholder="voce@empresa.com" value={email} onChange={(event) => setEmail(event.target.value)} /></div>
           <label htmlFor="senha">Senha</label>
-          <div className="input-wrap"><LockKeyhole size={17} /><input id="senha" type="password" required autoComplete="current-password" placeholder="Digite sua senha" value={senha} onChange={(event) => setSenha(event.target.value)} /></div>
+          <div className="input-wrap"><LockKeyhole size={17} /><input id="senha" type={mostrarSenha ? 'text' : 'password'} required autoComplete="current-password" placeholder="Digite sua senha" value={senha} onChange={(event) => setSenha(event.target.value)} /><button type="button" className="senha-toggle" onClick={() => setMostrarSenha(v => !v)} aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={mostrarSenha}>{mostrarSenha ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>
           <div className="perfil-heading"><label>Seu nível de acesso</label><span>3 perfis disponíveis</span></div>
           <div className="perfil-list">{perfis.map((item) => <button type="button" className={`perfil-option ${perfil === item.nome ? 'selecionado' : ''}`} key={item.nome} onClick={() => setPerfil(item.nome)}><span className="perfil-radio" /><span><strong>{item.nome}</strong><em>{item.descricao}</em></span></button>)}</div>
           {erro && <p className="form-error" role="alert">{erro}</p>}

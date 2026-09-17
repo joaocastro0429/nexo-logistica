@@ -1,0 +1,19 @@
+# Alternativa para falhas de DNS no build com Docker Engine no Linux.
+# Uso: docker compose -f compose.yaml -f compose.build-host.yaml up -d --build
+# Requer Docker Compose >= 2.27.1. Compartilha a rede do host durante o build.
+services:
+  backend:
+    build:
+      network: host
+      entitlements:
+        - network.host
+  frontend:
+    build:
+      network: host
+      entitlements:
+        - network.host
+  tests:
+    build:
+      network: host
+      entitlements:
+        - network.host

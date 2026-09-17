@@ -30,11 +30,3 @@ export interface GestaoRepository {
   buscarSimulacao(tenantId: string, id: string): Promise<string | null>;
   listarSimulacoes(tenantId: string): Promise<string[]>;
 }
-
-export interface DashboardRepository {
-  buscarPainel(tenantId: string): Promise<{
-    resumo: unknown[];
-    eficiencia: number[];
-    rotas: Registro[];
-  }>;
-}

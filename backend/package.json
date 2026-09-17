@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "npm run build && node --watch dist/src/main.js",
+    "dev": "dotenv -- sh -c 'npm run build && node --watch dist/src/main.js'",
     "start": "node dist/src/main.js",
     "seed": "npm run build && node dist/scripts/seed.js",
-    "test": "npm run build && node --test dist/tests/frete.test.js",
+    "test": "npm run build && node --test dist/tests/frete.test.js dist/tests/painel.test.js dist/tests/operacao.test.js dist/tests/operacao-http.test.js",
     "test:http": "node tests/http.mjs",
     "test:integration": "npm run build && node tests/integracao.mjs",
     "test:services": "npm run build && node --test dist/tests/*.test.js",
@@ -28,6 +28,7 @@
     "@types/cookie-parser": "^1.4.8",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.2",
+    "dotenv-cli": "^11.0.0",
     "drizzle-kit": "^0.31.4",
     "typescript": "^5.7.2"
   },
