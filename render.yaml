@@ -1,14 +1,8 @@
 services:
-  - type: keyvalue
-    name: desafio-logistica1-redis
-    plan: free
-    persistenceMode: off
-    maxmemoryPolicy: noeviction
-    ipAllowList: []
-
   - type: web
     name: desafio-logistica1-backend
     runtime: docker
+    plan: free
     dockerfilePath: ./backend/Dockerfile
     dockerContext: .
     healthCheckPath: /api/health
@@ -23,10 +17,7 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: desafio-logistica1-redis
-          property: connectionString
+        sync: false
       - key: FRONTEND_ORIGIN
         sync: false
       - key: JWT_SECRET
@@ -47,6 +38,7 @@ services:
   - type: web
     name: desafio-logistica1-frontend
     runtime: docker
+    plan: free
     dockerfilePath: ./frontend/Dockerfile
     dockerContext: .
     healthCheckPath: /login

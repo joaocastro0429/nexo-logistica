@@ -8,8 +8,8 @@ existem para o frontend Next.js e o backend NestJS. O Blueprint em
 
 - `desafio-logistica1-frontend`: serviço web público Next.js.
 - `desafio-logistica1-backend`: serviço web NestJS com healthcheck e seed idempotente.
-- `desafio-logistica1-redis`: Redis gerenciado para sessões, refresh tokens e limites; o plano
-   gratuito é efêmero e adequado apenas para demonstração.
+- Redis externo: necessário para sessões, refresh tokens e limites; a URL é
+   configurada secretamente em `REDIS_URL`.
 
 O MySQL continua externo. O Render não oferece um MySQL gerenciado compatível
 com este projeto. Use um MySQL gerenciado com TLS, como Aiven, Railway,
@@ -27,12 +27,13 @@ Não substitua o MySQL por PostgreSQL sem uma migração de banco e de Drizzle.
 
 1. No Render, escolha **New > Blueprint** e conecte o repositório.
 2. Selecione a branch que contém `render.yaml`, atualmente `test`.
-3. Revise o serviço Redis e o custo do plano escolhido. O Blueprint usa o plano
-   gratuito, com persistência desligada, para reduzir o custo da demonstração.
+3. Crie um Redis externo gratuito, por exemplo no Upstash, e copie sua URL
+   `redis://` ou `rediss://` privada.
 4. Crie o Blueprint. O Render exibirá os hosts dos serviços web.
 5. No serviço `desafio-logistica1-backend`, configure os valores secretos:
 
    - `DATABASE_URL`: URL completa do MySQL externo.
+   - `REDIS_URL`: URL completa do Redis externo.
    - `FRONTEND_ORIGIN`: URL pública exata do frontend, sem barra final.
    - `JWT_SECRET`: pelo menos 32 bytes aleatórios.
    - `MFA_ENCRYPTION_KEY`: 64 caracteres hexadecimais aleatórios.
@@ -76,18 +77,17 @@ Os cookies de sessão são HttpOnly e Secure quando a origem é HTTPS.
 - As migrações Drizzle são aplicadas na inicialização do backend.
 - O seed é idempotente e pode ser executado novamente, mas não apaga dados.
 - Preserve `JWT_SECRET`, `MFA_ENCRYPTION_KEY` e `AUTH_NAMESPACE` entre deploys.
-- Faça backup do MySQL e trate o Redis gratuito como armazenamento de sessões
-   efêmeras. Para produção, use um plano persistente e configure `persistenceMode`.
+- Faça backup do MySQL e trate o Redis como armazenamento de sessões efêmeras.
+   Para produção, use um Redis persistente e privado.
 - Não coloque `.env`, URLs com senha, chaves OAuth ou credenciais no Git.
 - Para atualizar o app, faça push na branch conectada ao Blueprint e acompanhe
   os logs de build, pre-deploy e healthcheck no Render.
 
 ## Limitações conhecidas
 
-O Blueprint não cria o MySQL. A disponibilidade pública depende da rede,
-TLS, firewall e plano do provedor MySQL escolhido. O plano Redis do Blueprint
-é deliberadamente explícito porque sessões e rate limits precisam de uma
-instância compartilhada entre réplicas; confira o custo antes de publicar.
+O Blueprint não cria o MySQL nem o Redis. A disponibilidade pública depende da
+rede, TLS, firewall e plano dos provedores externos escolhidos. Sessões e rate
+limits precisam de uma instância Redis compartilhada entre réplicas.
 
 Para uma demonstração descartável, use uma base MySQL separada e dados de
 seed. Para produção, substitua a senha demonstrativa, configure domínio
