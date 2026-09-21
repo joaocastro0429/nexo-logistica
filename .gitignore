@@ -7,4 +7,6 @@ data/
 dist/
 .agents/
 .codex/
+.vercel/
 !.env.example
+.vercel

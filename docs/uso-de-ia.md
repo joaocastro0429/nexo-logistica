@@ -237,3 +237,78 @@ corpo vazio e origem local retornaram 400 por validação de campos, superando
 o bloqueio de origem; uma origem externa continuou retornando 401. Não foram
 criadas contas nem testadas credenciais do usuário. Não houve execução da
 suíte completa, alterações de código ou uso de subagentes nesta etapa.
+
+## Continuidade: preparação para Vercel — 21/09/2026
+
+O usuário solicitou o deploy, preferencialmente na Vercel. O Codex leu o README,
+as instruções e os arquivos de infraestrutura, autenticação e importação.
+Consultou a documentação oficial da Vercel sobre Next.js/monorepos, NestJS,
+Functions, arquivos ignorados e API de projetos. Não utilizou skills ou
+subagentes. A alteração local preexistente em `render.yaml` foi preservada.
+
+A credencial inicialmente recusada pela API foi renovada pelo CLI, que confirmou
+o acesso à conta. Foi criado e vinculado o projeto `nexo-logistica`, no time
+`joaocastro125`, com Root Directory `frontend`, preset Next.js, instalação
+`npm ci --include=dev`, build `npm run build` e acesso aos arquivos dos workspaces
+fora da pasta do frontend. Nenhuma credencial foi incluída no Git ou na documentação.
+
+Foram adicionados `frontend/vercel.json`, `.vercelignore` e a exclusão de `.vercel/`
+do Git. A configuração Next.js passou a validar `BACKEND_URL` na Vercel, rejeitando
+valor ausente, HTTP, localhost, credenciais e caminhos, e a normalizar a barra
+final do destino. O README e o guia de deploy descrevem frontend na Vercel e
+backend contínuo com uma instância, devido à fila de importações em memória.
+
+Verificações desta etapa:
+
+- `npm test`: 23 testes aprovados.
+- `npm run typecheck` e `npm run build`: aprovados localmente.
+- Configuração Next.js: destinos local, Docker e HTTPS conferidos; 11 entradas
+  inválidas rejeitadas em uma verificação direta da configuração.
+- Campos do `vercel.json` conferidos no schema oficial; links locais da
+  documentação e `git diff --check` conferidos.
+- Os hosts Render presentes na configuração retornaram HTTP 404; os arquivos
+  de ambiente existentes apontavam MySQL e Redis para endereços locais.
+
+**A aplicação não foi publicada nesta etapa.** A conclusão depende de backend
+público saudável e MySQL/Redis acessíveis pela hospedagem, ainda não fornecidos.
+Criar o projeto Vercel não significa ter uma aplicação publicada. Não foram
+executados seed, migrações em produção, testes Docker ou teste HTTP completo
+contra um ambiente público. Nenhum serviço pago foi contratado.
+
+## Continuidade: configuração da infraestrutura — 21/09/2026
+
+Após o usuário pedir a configuração dos serviços, o Codex verificou os acessos
+existentes e identificou uma sessão autenticada no CLI Render. Consultou as
+documentações oficiais de Render, Vercel, Aiven e MySQL2. Usou a skill
+`plugin-management:plugin-management` para procurar conexões disponíveis; a
+busca encontrou Railway, mas nenhum plugin novo foi instalado. Não foram
+utilizados subagentes.
+
+Foram realizados:
+
+- Criação do Key Value gratuito `nexo-logistica-redis`, em Oregon, com
+  `noeviction`, persistência desativada e acesso externo bloqueado.
+- Criação do serviço Node gratuito `nexo-logistica-backend`, usando a branch
+  `test`, instalação pelo lockfile da raiz e healthcheck `/api/health`.
+- Geração de chaves próprias de JWT e MFA; configuração da origem Vercel,
+  namespace e conexão interna do Redis nas variáveis do backend.
+- Configuração de `BACKEND_URL` em Production no projeto Vercel existente.
+- Preparação local de `.env.production` e `.env.aiven`, ambos com permissão
+  `600`, ignorados pelo Git e pelo upload Vercel. Seus conteúdos secretos não
+  foram incluídos neste registro. O arquivo Aiven contém o campo de token vazio.
+- Atualização de [Deploy público](deploy.md) com recursos reais, configurações
+  e pendências, preservando as alterações locais preexistentes em `render.yaml`.
+
+O Redis atingiu o estado `available`, e as variáveis remotas foram conferidas
+sem exibir os segredos. O build Render do commit `a02e298` concluiu com sucesso:
+`npm ci --include=dev && npm run build --workspace backend`. A inicialização
+falhou porque `DATABASE_URL` ainda está vazia; o deploy ficou `update_failed`.
+Não foi executado novo deploy do frontend com o backend indisponível.
+
+O MySQL não foi criado, pois não havia acesso à conta Aiven. Foi solicitada a
+autenticação para prosseguir com o plano gratuito. Nenhum plano pago foi
+contratado. Não houve migração ou seed em produção, nem testes HTTP completos.
+As suítes locais não foram repetidas: esta etapa alterou configurações remotas
+e documentação, sem modificar o código da aplicação. Links locais e
+`git diff --check` foram conferidos; os testes da etapa anterior permanecem
+registrados somente naquela etapa.

@@ -4,6 +4,7 @@ import { migrate } from 'drizzle-orm/mysql2/migrator';
 import type { Pool } from 'mysql2/promise';
 import { resolve } from 'node:path';
 import { schema } from './schema';
+import { attachDatabasePool } from '@vercel/functions';
 
 export type DrizzleDatabase = MySql2Database<typeof schema>;
 export type Banco = {
@@ -15,9 +16,16 @@ export type Banco = {
 
 export async function abrirBanco(url = process.env.DATABASE_URL): Promise<Banco> {
   if (!url) throw new Error('Defina DATABASE_URL para conectar ao MySQL.');
-  const pool = mysql.createPool({ uri: url, connectionLimit: 10, decimalNumbers: true, charset: 'utf8mb4' });
+  const serverless = process.env.VERCEL === '1';
+  const pool = mysql.createPool({ uri: url, connectionLimit: serverless ? 2 : 10, maxIdle: serverless ? 2 : 10, idleTimeout: 5000, decimalNumbers: true, charset: 'utf8mb4' });
+  if (serverless) attachDatabasePool(pool);
   const db = drizzle(pool, { schema, mode: 'default' });
-  await migrate(db, { migrationsFolder: resolve(process.cwd(), 'drizzle') });
+  // Migrações em Functions são executadas separadamente antes do deploy,
+  // evitando DDL concorrente a cada cold start.
+  if (!serverless) {
+    try { await migrate(db, { migrationsFolder: resolve(process.cwd(), 'drizzle') }); }
+    catch (error) { await pool.end(); throw error; }
+  }
   return {
     db,
     pool,

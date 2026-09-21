@@ -37,15 +37,16 @@ export class OperacaoController {
   @Get('importacoes/:id/eventos')
   async eventos(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
     const store = await this.store;
-    store.importacoes.consultar(await this.sessao(req), id);
+    await store.importacoes.consultar(await this.sessao(req), id);
     res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'private, no-store', 'X-Accel-Buffering': 'no', Connection: 'keep-alive' });
     res.flushHeaders();
     let fechado = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    res.on('close', () => { fechado = true; clearTimeout(timer); });
+    const encerrarStream = setTimeout(() => { if (!fechado) res.end(); }, 25000);
+    res.on('close', () => { fechado = true; clearTimeout(timer); clearTimeout(encerrarStream); });
     const enviar = async () => {
       try {
-        const p = store.importacoes.consultar(await this.sessao(req), id);
+        const p = await store.importacoes.consultar(await this.sessao(req), id);
         if (fechado) return;
         res.write(`data: ${JSON.stringify(p)}\n\n`);
         if (p.estado === 'concluida' || p.estado === 'falhou') { res.end(); return; }

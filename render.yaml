@@ -1,8 +1,18 @@
 services:
+  - type: keyvalue
+    name: desafio-logistica1-redis
+    plan: free
+    region: oregon
+    persistenceMode: off
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
   - type: web
     name: desafio-logistica1-backend
     runtime: docker
     plan: free
+    region: oregon
+    branch: test
     dockerfilePath: ./backend/Dockerfile
     dockerContext: .
     healthCheckPath: /api/health
@@ -17,11 +27,14 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
-        sync: false
+        fromService:
+          type: keyvalue
+          name: desafio-logistica1-redis
+          property: connectionString
       - key: FRONTEND_ORIGIN
-        sync: false
+        value: https://desafio-logistica1-frontend.onrender.com
       - key: JWT_SECRET
-        sync: false
+        generateValue: true
       - key: MFA_ENCRYPTION_KEY
         sync: false
       - key: AUTH_NAMESPACE
@@ -39,6 +52,8 @@ services:
     name: desafio-logistica1-frontend
     runtime: docker
     plan: free
+    region: oregon
+    branch: test
     dockerfilePath: ./frontend/Dockerfile
     dockerContext: .
     healthCheckPath: /login
@@ -46,4 +61,4 @@ services:
       - key: NODE_ENV
         value: production
       - key: BACKEND_URL
-        sync: false
+        value: https://desafio-logistica1-backend.onrender.com

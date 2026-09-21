@@ -1,4 +1,6 @@
 import { securityConfig } from './security';
+import { getDeadline, waitUntil } from '@vercel/functions';
+import { criarImportacoesRedis } from '../infrastructure/repositories/importacoes.repository';
 import { criarOAuth } from './oauth';
 import { criarImportacoes } from './importacoes';
 import { calcularPainel, type SimulacaoAnalitica } from './painel';
@@ -20,7 +22,12 @@ export async function openStore(url?: string, redisUrl?: string) {
   const auth = criarAutenticacao(authRepository, redis, auditoria);
 
   const gestao = criarGestao(gestaoRepository, auditoria);
-  const importacoes = criarImportacoes({ session: auth.session, salvar: gestao.salvar });
+  const importacoes = criarImportacoes({
+    session: auth.session, salvar: gestao.salvar,
+    repository: criarImportacoesRedis(redis, process.env.AUTH_NAMESPACE || 'nexo'),
+    agendar: process.env.VERCEL === '1' ? waitUntil : undefined,
+    prazo: () => (getDeadline()?.getTime() ?? Date.now() + 300000) - 30000,
+  });
 
   // Regra do multi-tenant: toda consulta usa a empresa da sessão validada.
   // Esta função é interna do servidor; nunca passar um tenant recebido do cliente.
