@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID, scryptSync } from 'node:crypto';
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import type { GestaoRepository, Recurso } from '../domain/repositories';
+import type { AuditoriaRepository, GestaoRepository, Recurso } from '../domain/repositories';
 import type { Sessao } from '../types';
 
 type Dados = Record<string, unknown>;
@@ -34,7 +34,9 @@ export function calcularFrete(peso: number, comprimento: number, largura: number
   return { pesoCubado, pesoCobrado, base, porPeso, porDistancia, seguro, total: dinheiro(base + porPeso + porDistancia + seguro) };
 }
 
-export function criarGestao(repository: GestaoRepository) {
+type AuditContext = { ip?: string };
+export function criarGestao(repository: GestaoRepository, auditoria?: AuditoriaRepository) {
+  const registrar = (evento: Parameters<AuditoriaRepository['registrar']>[0]) => auditoria?.registrar(evento) || Promise.resolve();
   function recurso(tipo: string): Recurso {
     if (!['usuarios', 'clientes', 'transportadoras'].includes(tipo)) throw new NotFoundException('Cadastro inexistente.');
     return tipo as Recurso;
@@ -81,7 +83,7 @@ export function criarGestao(repository: GestaoRepository) {
     return { nome, email, telefone, taxa_base: numero(dados, 'taxa_base', 0, 100000), valor_kg: numero(dados, 'valor_kg', 0, 10000), valor_km: numero(dados, 'valor_km', 0, 10000) };
   }
 
-  async function salvar(sessao: Sessao, tipo: string, body: unknown, id?: string) {
+  async function salvar(sessao: Sessao, tipo: string, body: unknown, id?: string, context?: AuditContext) {
     const tabela = recurso(tipo);
     permitir(sessao, tabela, true);
     const values = validar(tabela, body, Boolean(id));
@@ -94,15 +96,18 @@ export function criarGestao(repository: GestaoRepository) {
     const persistValues = Object.fromEntries(Object.entries(values).map(([key, value]) => [fieldMap[key] || key, value]));
     const result = await repository.salvar(sessao.tenantId, tabela, persistValues, id);
     if (tabela === 'usuarios' && id) await repository.incrementarVersaoSessao(sessao.tenantId, id);
+    const acao = tabela === 'usuarios' && id && atual?.perfil !== values.perfil ? 'PERMISSAO_ALTERADA' : id ? 'OPERACAO_ADMINISTRATIVA' : tabela === 'usuarios' ? 'USUARIO_CRIADO' : 'OPERACAO_ADMINISTRATIVA';
+    await registrar({ tenantId: sessao.tenantId, usuarioId: sessao.usuarioId, acao, recurso: tabela, recursoId: String(result.id), ip: context?.ip, detalhes: tabela === 'usuarios' && id && atual?.perfil !== values.perfil ? { perfilAnterior: atual?.perfil, perfilNovo: values.perfil } : { operacao: id ? 'alteracao' : 'criacao' } });
     return result;
   }
 
-  async function remover(sessao: Sessao, tipo: string, id: string) {
+  async function remover(sessao: Sessao, tipo: string, id: string, context?: AuditContext) {
     const tabela = recurso(tipo);
     permitir(sessao, tabela, true);
     const atual = await consultar(sessao, tabela, id);
     if (tabela === 'usuarios' && atual.perfil === 'Administrador' && await repository.contarAdministradores(sessao.tenantId) <= 1) throw new ConflictException('A empresa precisa manter pelo menos um administrador.');
     await repository.remover(sessao.tenantId, tabela, id);
+    await registrar({ tenantId: sessao.tenantId, usuarioId: sessao.usuarioId, acao: tabela === 'usuarios' ? 'USUARIO_REMOVIDO' : 'OPERACAO_ADMINISTRATIVA', recurso: tabela, recursoId: id, ip: context?.ip, detalhes: { operacao: 'remocao' } });
     return { ok: true };
   }
 

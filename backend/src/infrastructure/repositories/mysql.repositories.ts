@@ -1,8 +1,8 @@
 import { and, desc, eq, lt, like, ne, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '../database';
-import { clientes, empresas, identidadesOAuth, simulacoes, transportadoras, usuarios } from '../database/schema';
-import type { AutenticacaoRepository, GestaoRepository, Registro, Recurso, UsuarioPersistido } from '../../domain/repositories';
+import { auditoria, clientes, empresas, identidadesOAuth, simulacoes, transportadoras, usuarios } from '../database/schema';
+import type { AuditoriaRepository, AutenticacaoRepository, EventoAuditoria, GestaoRepository, Registro, Recurso, UsuarioPersistido } from '../../domain/repositories';
 import type { Sessao } from '../../types';
 
 type DatabaseLike = DrizzleDatabase;
@@ -74,6 +74,19 @@ export class MySqlAutenticacaoRepository implements AutenticacaoRepository {
   async incrementarVersaoSessao(tenantId: string, usuarioId: string) {
     await this.database.update(usuarios).set({ sessionVersion: sql`${usuarios.sessionVersion} + 1` })
       .where(and(eq(usuarios.id, usuarioId), eq(usuarios.tenantId, tenantId)));
+  }
+}
+
+export class MySqlAuditoriaRepository implements AuditoriaRepository {
+  constructor(private readonly database: DatabaseLike) {}
+
+  async registrar(evento: EventoAuditoria) {
+    await this.database.insert(auditoria).values({
+      id: randomUUID(), tenantId: evento.tenantId || null, usuarioId: evento.usuarioId || null,
+      acao: evento.acao, recurso: evento.recurso || null, recursoId: evento.recursoId || null,
+      ip: evento.ip || null, detalhes: evento.detalhes ? JSON.stringify(evento.detalhes) : null,
+      criadaEm: new Date().toISOString(),
+    });
   }
 }
 

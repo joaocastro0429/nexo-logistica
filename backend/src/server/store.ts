@@ -8,7 +8,7 @@ import { criarGestao } from './gestao.js';
 import { abrirBanco } from './database';
 import { criarAutenticacao } from './auth';
 import type { Painel } from '../types';
-import { MySqlAutenticacaoRepository, MySqlGestaoRepository } from '../infrastructure/repositories/mysql.repositories';
+import { MySqlAuditoriaRepository, MySqlAutenticacaoRepository, MySqlGestaoRepository } from '../infrastructure/repositories/mysql.repositories';
 
 export async function openStore(url?: string, redisUrl?: string) {
   securityConfig();
@@ -16,9 +16,10 @@ export async function openStore(url?: string, redisUrl?: string) {
   const redis = await abrirRedis(redisUrl).catch(async error => { await db.close(); throw error; });
   const authRepository = new MySqlAutenticacaoRepository(db.db);
   const gestaoRepository = new MySqlGestaoRepository(db.db);
-  const auth = criarAutenticacao(authRepository, redis);
+  const auditoria = new MySqlAuditoriaRepository(db.db);
+  const auth = criarAutenticacao(authRepository, redis, auditoria);
 
-  const gestao = criarGestao(gestaoRepository);
+  const gestao = criarGestao(gestaoRepository, auditoria);
   const importacoes = criarImportacoes({ session: auth.session, salvar: gestao.salvar });
 
   // Regra do multi-tenant: toda consulta usa a empresa da sessão validada.
@@ -28,7 +29,7 @@ export async function openStore(url?: string, redisUrl?: string) {
     return calcularPainel(dados.map(dado => JSON.parse(dado) as SimulacaoAnalitica));
   }
 
-  return { health: async () => { await db.pool.query('SELECT 1'); await redis.ping(); return { status: 'ok' }; }, ...auth, oauth: criarOAuth(authRepository, redis, auth), cadastrar: criarCadastro(db), ...gestao, importacoes, buscarPainel, close: async () => { await importacoes.close(); await redis.quit(); await db.close(); } };
+  return { health: async () => { await db.pool.query('SELECT 1'); await redis.ping(); return { status: 'ok' }; }, ...auth, oauth: criarOAuth(authRepository, redis, auth), cadastrar: criarCadastro(db, auditoria), ...gestao, importacoes, buscarPainel, close: async () => { await importacoes.close(); await redis.quit(); await db.close(); } };
 }
 
 let store: ReturnType<typeof openStore> | undefined;

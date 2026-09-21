@@ -8,10 +8,11 @@ import type { Tokens } from '../src/server/auth';
 
 const email = 'teste@example.com';
 test('JWT: assinatura, expiração, issuer, audience, tipo, perfil/tenant atuais e revogação', async () => {
-  const { auth, senha, user } = authFixture();
+  const { auth, senha, user, eventos } = authFixture();
   assert.equal(await auth.passwordLogin(email, 'incorreta'), null);
   assert.equal(await auth.passwordLogin(email, senha, 'Operador'), null);
   const tokens = await auth.passwordLogin(email, senha) as Tokens;
+  assert.equal(eventos.at(-1)?.acao, 'LOGIN');
   assert.equal((await auth.session(tokens.access))?.tenantId, 'empresa-a');
   const data = jwt.decode(tokens.access) as jwt.JwtPayload;
   assert.equal(data.exp! - data.iat!, 900);
@@ -28,7 +29,7 @@ test('JWT: assinatura, expiração, issuer, audience, tipo, perfil/tenant atuais
   assert.equal(await auth.refresh(tokens.refresh), null);
 });
 test('Refresh: rotação, reuso revoga família e logout funciona com access expirado', async () => {
-  const { auth, senha } = authFixture();
+  const { auth, senha, eventos } = authFixture();
   const tokens = await auth.passwordLogin(email, senha) as Tokens;
   const renewed = (await auth.refresh(tokens.refresh))!;
   assert.ok(renewed); assert.notEqual(renewed.refresh, tokens.refresh);
@@ -37,11 +38,14 @@ test('Refresh: rotação, reuso revoga família e logout funciona com access exp
   assert.equal(await auth.session(renewed.access), null);
   assert.equal(await auth.refresh(renewed.refresh), null);
   const second = await auth.passwordLogin(email, senha) as Tokens;
+  const eventosAntesDoLogoutPorRefresh = eventos.length;
   await auth.logout(undefined, second.refresh);
+  assert.equal(eventos.length, eventosAntesDoLogoutPorRefresh, 'logout por refresh sem access não identifica o ator');
   assert.equal(await auth.session(second.access), null);
   const third = await auth.passwordLogin(email, senha) as Tokens;
   const expired = jwt.sign({ ...jwt.decode(third.access) as jwt.JwtPayload, exp: 1 }, process.env.JWT_SECRET!);
   await auth.logout(expired);
+  assert.equal(eventos.at(-1)?.acao, 'LOGOUT');
   assert.equal(await auth.session(third.access), null);
   assert.equal(await auth.refresh(third.refresh), null);
 });

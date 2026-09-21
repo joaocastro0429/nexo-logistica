@@ -1,5 +1,5 @@
 import { scryptSync } from 'node:crypto';
-import type { AutenticacaoRepository, UsuarioPersistido } from '../src/domain/repositories';
+import type { AuditoriaRepository, AutenticacaoRepository, UsuarioPersistido } from '../src/domain/repositories';
 import type { Redis } from '../src/server/redis';
 import { criarAutenticacao } from '../src/server/auth';
 
@@ -67,5 +67,7 @@ export function authFixture() {
   };
   const memory = new MemoryRedis();
   const redis = memory as unknown as Redis;
-  return { auth: criarAutenticacao(repository, redis), memory, redis, repository, user, senha, links, users };
+  const eventos: Parameters<AuditoriaRepository['registrar']>[0][] = [];
+  const auditoria: AuditoriaRepository = { registrar: async evento => { eventos.push(evento); } };
+  return { auth: criarAutenticacao(repository, redis, auditoria), memory, redis, repository, auditoria, eventos, user, senha, links, users };
 }
