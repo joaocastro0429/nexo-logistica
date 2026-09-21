@@ -1,0 +1,98 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import jwt from 'jsonwebtoken';
+import { TOTP, Secret } from 'otpauth';
+import { authFixture } from './auth-fixture';
+import { decrypt, encrypt, securityConfig } from '../src/server/security';
+import type { Tokens } from '../src/server/auth';
+
+const email = 'teste@example.com';
+test('JWT: assinatura, expiração, issuer, audience, tipo, perfil/tenant atuais e revogação', async () => {
+  const { auth, senha, user } = authFixture();
+  assert.equal(await auth.passwordLogin(email, 'incorreta'), null);
+  assert.equal(await auth.passwordLogin(email, senha, 'Operador'), null);
+  const tokens = await auth.passwordLogin(email, senha) as Tokens;
+  assert.equal((await auth.session(tokens.access))?.tenantId, 'empresa-a');
+  const data = jwt.decode(tokens.access) as jwt.JwtPayload;
+  assert.equal(data.exp! - data.iat!, 900);
+  assert.equal(data.tenantId, undefined);
+  const parts = tokens.access.split('.'); parts[1] = Buffer.from(JSON.stringify({ ...data, sub: 'outro' })).toString('base64url');
+  assert.equal(await auth.session(parts.join('.')), null);
+  for (const change of [{ exp: 1 }, { aud: 'outro' }, { iss: 'outro' }, { typ: 'refresh' }]) {
+    assert.equal(await auth.session(jwt.sign({ ...data, ...change }, process.env.JWT_SECRET!)), null);
+  }
+  user.perfil = 'Gestor';
+  assert.equal((await auth.session(tokens.access))?.perfil, 'Gestor');
+  user.sessionVersion++;
+  assert.equal(await auth.session(tokens.access), null);
+  assert.equal(await auth.refresh(tokens.refresh), null);
+});
+test('Refresh: rotação, reuso revoga família e logout funciona com access expirado', async () => {
+  const { auth, senha } = authFixture();
+  const tokens = await auth.passwordLogin(email, senha) as Tokens;
+  const renewed = (await auth.refresh(tokens.refresh))!;
+  assert.ok(renewed); assert.notEqual(renewed.refresh, tokens.refresh);
+  assert.ok(await auth.session(renewed.access));
+  assert.equal(await auth.refresh(tokens.refresh), null);
+  assert.equal(await auth.session(renewed.access), null);
+  assert.equal(await auth.refresh(renewed.refresh), null);
+  const second = await auth.passwordLogin(email, senha) as Tokens;
+  await auth.logout(undefined, second.refresh);
+  assert.equal(await auth.session(second.access), null);
+  const third = await auth.passwordLogin(email, senha) as Tokens;
+  const expired = jwt.sign({ ...jwt.decode(third.access) as jwt.JwtPayload, exp: 1 }, process.env.JWT_SECRET!);
+  await auth.logout(expired);
+  assert.equal(await auth.session(third.access), null);
+  assert.equal(await auth.refresh(third.refresh), null);
+});
+test('MFA: confirmação, criptografia, desafio, antirreplay, recuperação única e revogação', async () => {
+  const { auth, senha, user } = authFixture();
+  const tokens = await auth.passwordLogin(email, senha) as Tokens;
+  await assert.rejects(auth.setupMfa(tokens.access, 'errada'));
+  const setup = await auth.setupMfa(tokens.access, senha);
+  const generator = new TOTP({ secret: Secret.fromBase32(setup.secret) });
+  await assert.rejects(auth.enableMfa(tokens.access, 'invalido'));
+  const enabled = await auth.enableMfa(tokens.access, generator.generate());
+  assert.equal(enabled.recoveryCodes.length, 8);
+  assert.ok(user.mfaSecret && !user.mfaSecret.includes(setup.secret));
+  assert.ok(!user.recoveryHashes!.includes(enabled.recoveryCodes[0]));
+  assert.equal(await auth.session(tokens.access), null);
+  assert.equal(await auth.refresh(tokens.refresh), null);
+  assert.equal(await auth.login(email, senha, 'Administrador'), null);
+  const result = await auth.passwordLogin(email, senha);
+  assert.ok(result && 'challenge' in result);
+  assert.equal(await auth.session(result.challenge), null);
+  assert.equal(await auth.completeMfa(result.challenge, generator.generate()), null, 'não aceita o código usado na ativação');
+  const mfaTokens = await auth.completeMfa(result.challenge, enabled.recoveryCodes[0]);
+  assert.ok(mfaTokens && await auth.session(mfaTokens.access));
+  assert.equal(await auth.completeMfa(result.challenge, enabled.recoveryCodes[1]), null);
+  const next = await auth.passwordLogin(email, senha);
+  assert.ok(next && 'challenge' in next);
+  assert.equal(await auth.completeMfa(next.challenge, enabled.recoveryCodes[0]), null);
+  await auth.disableMfa(mfaTokens.access, senha, enabled.recoveryCodes[1]);
+  assert.equal(await auth.session(mfaTokens.access), null);
+  assert.equal(user.mfaSecret, null);
+});
+test('Abuso: limites por conta, reautenticação e segundo fator; Redis indisponível falha fechado', async () => {
+  const { auth, senha, user, memory } = authFixture();
+  for (let i = 0; i < 10; i++) assert.equal(await auth.passwordLogin(' TESTE@example.com ', 'errada'), null);
+  await assert.rejects(auth.passwordLogin(email, senha), (error: any) => error.status === 429);
+  const second = authFixture();
+  const tokens = await second.auth.passwordLogin(email, second.senha) as Tokens;
+  for (let i = 0; i < 8; i++) await assert.rejects(second.auth.reauthenticate(tokens.access, 'errada', ''));
+  await assert.rejects(second.auth.reauthenticate(tokens.access, second.senha, ''), (error: any) => error.status === 429);
+  user.mfaSecret = encrypt(new Secret({ size: 20 }).base32, securityConfig().encryption);
+  const challenge = await auth.finish(user);
+  assert.ok('challenge' in challenge);
+  for (let i = 0; i < 8; i++) assert.equal(await auth.completeMfa(challenge.challenge, 'errado'), null);
+  await assert.rejects(auth.completeMfa(challenge.challenge, 'errado'), (error: any) => error.status === 429);
+  memory.get = async () => { throw new Error('offline'); };
+  await assert.rejects(auth.refresh('a'.repeat(64)));
+});
+test('Criptografia autenticada detecta alteração do segredo', () => {
+  authFixture(); const key = securityConfig().encryption;
+  const value = encrypt('segredo', key);
+  assert.equal(decrypt(value, key), 'segredo');
+  const parts = value.split('.'); parts[2] = Buffer.from('alterado').toString('base64url');
+  assert.throws(() => decrypt(parts.join('.'), key));
+});

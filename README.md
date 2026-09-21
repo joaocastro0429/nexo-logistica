@@ -46,6 +46,7 @@ A execução recomendada usa Docker e Docker Compose:
 
 ```bash
 cp .env.example .env
+# Configure JWT_SECRET e MFA_ENCRYPTION_KEY conforme docs/seguranca.md antes de iniciar.
 docker compose up -d --build
 docker compose exec backend node dist/scripts/seed.js
 ```
@@ -57,7 +58,7 @@ Se você já tiver um `.env`, preserve-o e ajuste as variáveis conforme o exemp
 | Áurea | admin@aurea.com | gestor@aurea.com | operador@aurea.com |
 | Vertex | admin@vertex.com | gestor@vertex.com | operador@vertex.com |
 
-Essas são contas públicas de demonstração. O comando `seed` cria os registros sem sobrescrever os existentes. Os dados ficam no MySQL, no volume `mysql_data`. As sessões ficam no Redis, no volume `redis_data`, com expiração de oito horas. O backend usa Drizzle ORM para schema, migrações e acesso tipado aos dados.
+Essas são contas públicas de demonstração. O comando `seed` cria os registros sem sobrescrever os existentes. Os dados ficam no MySQL, no volume `mysql_data`. As famílias de sessão ficam no Redis, no volume `redis_data`, por até sete dias; o JWT de acesso dura 15 minutos e é renovado por refresh token. O backend usa Drizzle ORM para schema, migrações e acesso tipado aos dados.
 
 ## Como funciona o multi-tenant
 
@@ -99,9 +100,9 @@ O MySQL usa tabelas compartilhadas com índices por empresa e transações InnoD
 | `backend/src/infrastructure/database/` | Conexão Drizzle, schema e migrações |
 | `backend/src/server/demo.ts` | Cadastra os dados fictícios, somente pelo comando `seed` |
 
-O fluxo principal é simples: `Controller -> Store/Service -> Repository -> MySQL`. O controller recebe a requisição, o store aplica as regras de negócio e o repository acessa o banco através do Drizzle. O Redis fica responsável somente pelas sessões.
+O fluxo principal é simples: `Controller -> Store/Service -> Repository -> MySQL`. O controller recebe a requisição, o store aplica as regras de negócio e o repository acessa o banco através do Drizzle. O Redis mantém sessões, rotação de refresh, desafios temporários e contadores de abuso de autenticação.
 
-Autenticação e multi-tenant têm responsabilidades diferentes: a autenticação identifica quem está acessando; o filtro por empresa determina quais dados essa pessoa pode acessar. As senhas usam hash, e o navegador recebe um cookie `HttpOnly`. O hash do token identifica uma sessão no Redis, com TTL de oito horas. No logout, a chave é removida. A empresa e o perfil são consultados no MySQL a cada requisição. Editar um usuário incrementa `session_version` na mesma transação da edição, invalidando imediatamente suas sessões antigas, mesmo que as chaves ainda não tenham expirado no Redis.
+Autenticação e multi-tenant têm responsabilidades diferentes: a autenticação identifica quem está acessando; o filtro por empresa determina quais dados essa pessoa pode acessar. As senhas usam hash, e o navegador recebe um cookie `HttpOnly`. O JWT assinado identifica uma família de sessão no Redis. O refresh token é opaco, armazenado por hash, rotacionado a cada uso e limitado a sete dias desde o login. No logout, a família é revogada. A empresa e o perfil são consultados no MySQL a cada requisição. Editar um usuário incrementa `session_version` na mesma transação da edição, invalidando imediatamente suas sessões antigas, mesmo que as chaves ainda não tenham expirado no Redis.
 
 ## Como explicar na entrevista
 
@@ -118,12 +119,12 @@ npm run build
 npm run docker:test
 ```
 
-`npm test` executa os testes de cálculo de frete, indicadores, insights, importação e integrações sem precisar de MySQL/Redis. O teste HTTP de upload/SSE usa uma porta temporária local e persistência simulada. `npm run docker:test` constrói a imagem de testes e executa os testes de MySQL, Redis e da API NestJS real. Eles criam bancos MySQL temporários com prefixo `nexo_test_`, removidos ao final, e usam o banco lógico 1 do Redis; a aplicação usa o banco lógico 0. A suíte cobre CRUD, permissões, isolamento, histórico, persistência e expiração das sessões.
+`npm test` executa testes de JWT, refresh, MFA, OAuth e autenticação HTTP com dependências simuladas, além dos testes de cálculo de frete, indicadores, insights, importação e integrações sem precisar de MySQL/Redis. O teste HTTP de upload/SSE usa uma porta temporária local e persistência simulada. `npm run docker:test` constrói a imagem de testes e executa os testes de MySQL, Redis e da API NestJS real. Eles criam bancos MySQL temporários com prefixo `nexo_test_`, removidos ao final, e usam o banco lógico 1 do Redis; a aplicação usa o banco lógico 0. A suíte cobre CRUD, permissões, isolamento, histórico, persistência e expiração das sessões.
 
 Para verificar o caminho completo pelo frontend, mantenha a aplicação e o seed em execução e rode `npm run test:http` na raiz (requer Node e `npm install` no host).
 O escopo implementado inclui login, painel, gestão de usuários, clientes, transportadoras, simulação de frete e histórico. Os indicadores e insights da visão geral são calculados a partir das simulações persistidas da empresa. A tela `/cadastro` cria uma nova empresa e sua primeira conta de Administrador. Para ingressar em uma empresa existente, gestores e operadores devem ser cadastrados pelo administrador autenticado. Listagens não têm paginação neste escopo.
 
-O backend está no NestJS e valida a autenticação antes de passar a empresa às consultas. A execução atual pressupõe um servidor com disco persistente. Produção exige substituir as contas de demonstração, proteção contra tentativas repetidas de login e revisão da persistência para a hospedagem escolhida.
+O backend está no NestJS e valida a autenticação antes de passar a empresa às consultas. A execução atual pressupõe um servidor com disco persistente. Produção exige substituir as contas de demonstração, configurar chaves próprias e HTTPS, credenciais OAuth e revisar a persistência para a hospedagem escolhida. A proteção contra tentativas repetidas está implementada; seus limites e comportamento atrás do proxy estão em [Segurança](docs/seguranca.md).
 
 
 ## Docker, persistência e configuração
@@ -150,11 +151,13 @@ Variáveis de `.env` (o arquivo não é versionado):
 | `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD` | Banco e credenciais da aplicação |
 | `MYSQL_ROOT_PASSWORD` | Inicialização do MySQL e criação dos bancos temporários nos testes |
 | `FRONTEND_PORT` | Porta local do frontend, padrão 3000 |
-| `FRONTEND_ORIGIN` | Origem exata autorizada para escritas, padrão `http://localhost:3000` |
+| `FRONTEND_ORIGIN` | Origem exata autorizada para escritas e callbacks, padrão `http://localhost:3000` |
+| `JWT_SECRET`, `MFA_ENCRYPTION_KEY` | Chaves obrigatórias de assinatura e criptografia, conforme [Segurança](docs/seguranca.md#configuração) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | Credenciais para habilitar os provedores OAuth |
 
 O `.env.example` contém valores de desenvolvimento. Use senhas alfanuméricas nesse exemplo de URLs. Se mudar a porta, ajuste também `FRONTEND_ORIGIN`. Alterar senhas no `.env` não troca credenciais de um volume MySQL já inicializado.
 
-O Nest recebe `DATABASE_URL` e `REDIS_URL` do Compose. O Next recebe `BACKEND_URL` durante o build. As tabelas são inicializadas pelas migrações versionadas em `backend/drizzle`, aplicadas automaticamente na inicialização. Mudanças futuras exigem atualizar o schema e executar `npm run db:generate`.
+O Nest recebe `DATABASE_URL` e `REDIS_URL` do Compose. O Next recebe `BACKEND_URL` durante o build. As tabelas são inicializadas pelas migrações versionadas em `backend/drizzle`, aplicadas automaticamente na inicialização. Mudanças futuras exigem atualizar o schema e executar `npx drizzle-kit generate` dentro de `backend/`.
 
 ### Desenvolvimento sem container para o código
 
@@ -165,10 +168,27 @@ docker compose -f compose.yaml -f compose.dev.yaml up -d mysql redis
 npm install
 export DATABASE_URL='mysql://nexo:nexoDev2026@127.0.0.1:3307/nexo'
 export REDIS_URL='redis://127.0.0.1:6380'
+export FRONTEND_ORIGIN='http://localhost:3000'
+export GOOGLE_CLIENT_ID='seu-client-id'
+export GOOGLE_CLIENT_SECRET='seu-client-secret'
+export GITHUB_CLIENT_ID='seu-client-id'
+export GITHUB_CLIENT_SECRET='seu-client-secret'
 npm run dev:backend
 ```
 
 Ajuste as credenciais de acordo com seu `.env`. Em outro terminal, execute `npm run dev:frontend`. Pare antes o frontend/backend do Compose se for usar as mesmas portas. O backend compila ao iniciar; reinicie o comando após editar TypeScript. Os arquivos `.env` não são carregados automaticamente nos comandos locais: exporte as variáveis no terminal.
+
+Use a mesma origem em `FRONTEND_ORIGIN` e no endereço em que o Next.js estiver
+aberto. Na tela de login, os botões Google e GitHub permanecem clicáveis mesmo
+sem configuração e informam quando o provedor ainda não foi habilitado. Para
+Google e GitHub, cadastre exatamente os callbacks descritos em
+[Segurança](docs/seguranca.md#google) e [Segurança](docs/seguranca.md#github),
+e defina as quatro credenciais no ambiente do backend. Sem elas, os botões OAuth
+não iniciam o fluxo externo; isso não é uma falha do login local.
+
+Se aparecer `EADDRINUSE` na porta 3001, já existe um backend em execução. Pare
+o processo anterior antes de iniciar outro, ou use `PORT=3011` e ajuste também o
+destino `BACKEND_URL` do frontend.
 
 Referências: [Drizzle ORM](https://orm.drizzle.team/docs/overview), [MySQL2](https://sidorares.github.io/node-mysql2/docs), [cliente Redis para Node](https://redis.io/docs/latest/develop/clients/nodejs/) e [ordem de inicialização no Compose](https://docs.docker.com/compose/how-tos/startup-order/).
 
@@ -303,3 +323,17 @@ incluído. Reenvios podem duplicar clientes. Não houve alteração de schema.
 
 Consulte [a documentação completa](docs/integracoes-e-importacoes.md) para
 formato, exemplo, permissões, endpoints, arquitetura, demonstração e limites.
+
+## Segurança
+
+Login por e-mail/senha, OAuth Google e GitHub, MFA/TOTP, JWT, refresh token com
+rotação e detecção de reuso, controle de acesso por perfil e limitação de abuso
+estão implementados. A tela **Segurança da conta** (`/seguranca`) permite ativar
+MFA e vincular provedores após reautenticação. MFA é opcional por conta; quando
+ativado, é exigido tanto no login por senha quanto por OAuth.
+
+Consulte [Segurança e autenticação](docs/seguranca.md) para configuração das
+chaves e provedores, callbacks, fluxos, endpoints, migração, recuperação,
+limites e validações. As credenciais reais dos provedores precisam ser fornecidas
+no ambiente para habilitar seus botões. A configuração inicial OAuth parte de
+uma conta local; não há associação automática por e-mail.

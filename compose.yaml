@@ -35,6 +35,13 @@ services:
       DATABASE_URL: mysql://${MYSQL_USER:-nexo}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-nexo}
       REDIS_URL: redis://redis:6379
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      AUTH_NAMESPACE: ${AUTH_NAMESPACE:-nexo}
+      JWT_SECRET: ${JWT_SECRET:-}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
     depends_on:
       mysql:
         condition: service_healthy
@@ -71,6 +78,8 @@ services:
       dockerfile: backend/Dockerfile
       target: build
     environment:
+      JWT_SECRET: nexo-test-only-jwt-secret-at-least-32-bytes
+      MFA_ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
       MYSQL_TEST_URL: mysql://root:${MYSQL_ROOT_PASSWORD}@mysql:3306/mysql
       REDIS_URL: redis://redis:6379/1
     depends_on:

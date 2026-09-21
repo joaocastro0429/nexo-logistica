@@ -1,4 +1,6 @@
 'use client';
+
+import { apiFetch } from '../../lib/api';
 import { useState } from 'react';
 const ufs = 'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ');
 export default function Localidades({ aplicar }: { aplicar: (campo: string, cidade: string) => void }) {
@@ -12,7 +14,7 @@ export default function Localidades({ aplicar }: { aplicar: (campo: string, cida
   async function consultar(tipo: 'cep' | 'municipios') {
     setErro(''); setAviso(''); setOcupado(true);
     try {
-      const res = await fetch(`/api/integracoes/${tipo}/${tipo === 'cep' ? cep.replace(/\D/g, '') : uf}`);
+      const res = await apiFetch(`/api/integracoes/${tipo}/${tipo === 'cep' ? cep.replace(/\D/g, '') : uf}`);
       const dados = await res.json();
       if (!res.ok) throw new Error(dados.message || 'Consulta indisponível.');
       if (tipo === 'cep') { aplicar(campo, `${dados.cidade}/${dados.uf}`); setAviso(`ViaCEP: ${dados.logradouro} ${dados.bairro} — ${dados.cidade}/${dados.uf}. Cidade aplicada à ${campo}.`); }

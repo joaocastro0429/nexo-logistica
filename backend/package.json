@@ -7,7 +7,7 @@
     "dev": "dotenv -- sh -c 'npm run build && node --watch dist/src/main.js'",
     "start": "node dist/src/main.js",
     "seed": "npm run build && node dist/scripts/seed.js",
-    "test": "npm run build && node --test dist/tests/frete.test.js dist/tests/painel.test.js dist/tests/operacao.test.js dist/tests/operacao-http.test.js",
+    "test": "npm run build && node --test dist/tests/frete.test.js dist/tests/painel.test.js dist/tests/operacao.test.js dist/tests/operacao-http.test.js dist/tests/auth.test.js dist/tests/oauth.test.js dist/tests/auth-http.test.js",
     "test:http": "node tests/http.mjs",
     "test:integration": "npm run build && node tests/integracao.mjs",
     "test:services": "npm run build && node --test dist/tests/*.test.js",
@@ -18,8 +18,11 @@
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
     "cookie-parser": "^1.4.7",
-    "drizzle-orm": "^0.44.5",
+    "drizzle-orm": "^0.45.2",
+    "jose": "^6.2.12",
+    "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.24.4",
+    "otpauth": "^9.5.2",
     "redis": "^6.2.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
@@ -27,6 +30,7 @@
   "devDependencies": {
     "@types/cookie-parser": "^1.4.8",
     "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.10.2",
     "dotenv-cli": "^11.0.0",
     "drizzle-kit": "^0.31.4",
@@ -34,5 +38,8 @@
   },
   "engines": {
     "node": ">=22.13.0"
+  },
+  "overrides": {
+    "multer": "^2.4.0"
   }
 }

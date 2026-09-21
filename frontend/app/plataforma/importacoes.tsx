@@ -1,4 +1,6 @@
 'use client';
+
+import { apiFetch } from '../../lib/api';
 import { FormEvent, useEffect, useState } from 'react';
 import './gestao.css';
 type Progresso = { id: string; estado: string; total: number; processadas: number; importadas: number; erros: { linha: number; mensagem: string }[] };
@@ -32,7 +34,7 @@ export default function Importacoes() {
     setEnviando(true);
     try {
       const body = new FormData(); body.append('arquivo', arquivo);
-      const res = await fetch('/api/importacoes/clientes', { method: 'POST', body });
+      const res = await apiFetch('/api/importacoes/clientes', { method: 'POST', body });
       const dados = await res.json();
       if (!res.ok) throw new Error(dados.message || 'Falha no upload.');
       setJob(dados);
@@ -42,7 +44,7 @@ export default function Importacoes() {
   async function consultar() {
     if (!job) return;
     try {
-      const res = await fetch(`/api/importacoes/${job.id}`, { cache: 'no-store' });
+      const res = await apiFetch(`/api/importacoes/${job.id}`, { cache: 'no-store' });
       const dado = await res.json();
       if (!res.ok) throw new Error(dado.message || 'Falha ao consultar.');
       setJob(dado); setErro(''); setTentativa(t => t + 1);

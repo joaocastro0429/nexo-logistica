@@ -1,7 +1,7 @@
-import { and, desc, eq, like, ne, or, sql } from 'drizzle-orm';
+import { and, desc, eq, lt, like, ne, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '../database';
-import { clientes, empresas, simulacoes, transportadoras, usuarios } from '../database/schema';
+import { clientes, empresas, identidadesOAuth, simulacoes, transportadoras, usuarios } from '../database/schema';
 import type { AutenticacaoRepository, GestaoRepository, Registro, Recurso, UsuarioPersistido } from '../../domain/repositories';
 import type { Sessao } from '../../types';
 
@@ -25,8 +25,41 @@ export class MySqlAutenticacaoRepository implements AutenticacaoRepository {
     const [row] = await this.database.select({
       id: usuarios.id, nome: usuarios.nome, perfil: usuarios.perfil, tenantId: usuarios.tenantId,
       senhaHash: usuarios.senhaHash, sessionVersion: usuarios.sessionVersion,
+      mfaSecret: usuarios.mfaSecret, mfaLastStep: usuarios.mfaLastStep, recoveryHashes: usuarios.recoveryHashes,
     }).from(usuarios).where(eq(usuarios.email, email)).limit(1);
     return row ? { ...row, perfil: row.perfil as UsuarioPersistido['perfil'] } : null;
+  }
+
+  async buscarUsuario(id: string): Promise<UsuarioPersistido | null> {
+    const [row] = await this.database.select().from(usuarios).where(eq(usuarios.id, id)).limit(1);
+    return row || null;
+  }
+  async salvarMfa(id: string, version: number, secret: string | null, hashes: string | null, step: number) {
+    const [result] = await this.database.update(usuarios).set({ mfaSecret: secret, recoveryHashes: hashes, mfaLastStep: step, sessionVersion: sql`${usuarios.sessionVersion} + 1` })
+      .where(and(eq(usuarios.id, id), eq(usuarios.sessionVersion, version)));
+    return result.affectedRows === 1;
+  }
+  async consumirTotp(id: string, secret: string, step: number) {
+    const [result] = await this.database.update(usuarios).set({ mfaLastStep: step })
+      .where(and(eq(usuarios.id, id), eq(usuarios.mfaSecret, secret), lt(usuarios.mfaLastStep, step)));
+    return result.affectedRows === 1;
+  }
+  async consumirRecovery(id: string, previous: string, next: string) {
+    const [result] = await this.database.update(usuarios).set({ recoveryHashes: next })
+      .where(and(eq(usuarios.id, id), eq(usuarios.recoveryHashes, previous)));
+    return result.affectedRows === 1;
+  }
+  async buscarOAuth(provider: 'google' | 'github', subject: string) {
+    const [row] = await this.database.select({ usuarioId: identidadesOAuth.usuarioId }).from(identidadesOAuth)
+      .where(and(eq(identidadesOAuth.provider, provider), eq(identidadesOAuth.subject, subject))).limit(1);
+    return row ? this.buscarUsuario(row.usuarioId) : null;
+  }
+  async vincularOAuth(id: string, provider: 'google' | 'github', subject: string) {
+    await this.database.insert(identidadesOAuth).values({ usuarioId: id, provider, subject });
+  }
+  async listarOAuth(id: string) {
+    const rows = await this.database.select({ provider: identidadesOAuth.provider }).from(identidadesOAuth).where(eq(identidadesOAuth.usuarioId, id));
+    return rows.map(row => row.provider);
   }
 
   async buscarSessao(usuarioId: string, sessionVersion: number): Promise<Sessao | null> {

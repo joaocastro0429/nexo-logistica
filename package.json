@@ -27,5 +27,9 @@
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.10"
+  },
+  "overrides": {
+    "multer": "^2.4.0",
+    "postcss": "^8.5.28"
   }
 }

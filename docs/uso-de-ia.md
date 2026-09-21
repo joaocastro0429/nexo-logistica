@@ -145,3 +145,95 @@ Não foram alterados usuários, executado seed ou reconstruídos containers.
 Não houve validação visual nem importação ponta a ponta com MySQL/Redis reais
 nesta verificação. Os resultados confirmam os testes do código local, mas não
 atestam todos os fluxos das versões em execução.
+
+## Continuidade: segurança e autenticação — 21/09/2026
+
+Nesta etapa, o usuário solicitou login por e-mail/senha, OAuth Google e GitHub,
+MFA/TOTP, JWT, refresh token, controle de acesso por perfil, proteção contra
+abuso e documentação. O Codex leu o README, as instruções AGENTS.md e o código
+relacionado. O repositório não tinha alterações locais no início da inspeção.
+Não foram utilizados subagentes ou skills nesta etapa.
+
+Foram consultadas as documentações oficiais de OpenID Connect do Google e do
+fluxo OAuth Web/PKCE do GitHub. A implementação preservou permissões e isolamento
+existentes, acrescentou JWT com sessão revogável no Redis, refresh rotativo,
+MFA com segredo criptografado e recuperação de uso único, vínculo OAuth após
+reautenticação e contadores atômicos contra abuso. Foram criadas a tela de
+Segurança da conta, a migração Drizzle e a
+[documentação de segurança](seguranca.md), que registra configuração, decisões,
+endpoints e limitações. As chaves e credenciais reais não foram incluídas no
+repositório nem alteradas no ambiente local da aplicação.
+
+A primeira execução dos novos testes HTTP identificou cookies duplicados ao
+abrir o desafio MFA; a emissão foi corrigida antes da repetição aprovada.
+A auditoria de dependências motivou o alinhamento de Drizzle ORM e overrides
+compatíveis de Multer/PostCSS. O lockfile foi atualizado; permaneceu documentada
+a cadeia de quatro alertas moderados de ferramentas de desenvolvimento.
+
+Validações concluídas nesta etapa:
+
+- `npm test`: 19 testes aprovados.
+- `npm run typecheck` e `npm run build`: aprovados.
+- `npm run test:services --workspace backend`: 22 testes aprovados, incluindo
+  MySQL/Redis reais e concorrência de refresh, recuperação e limites.
+- `npm run test:integration --workspace backend`: aprovado, com processo NestJS
+  real, bancos temporários, MFA, refresh, permissões e isolamento.
+- `npm audit --omit=dev`: zero vulnerabilidades reportadas. O audit completo
+  reportou quatro alertas moderados em dependências de desenvolvimento.
+- `git diff --check` e links locais da documentação: conferidos.
+
+MySQL e Redis existentes foram utilizados por portas locais somente para os
+bancos/prefixos temporários dos testes. Os containers da aplicação não foram
+reconstruídos; `npm run docker:test`, `npm run test:http` pelo frontend e validação
+visual não foram executados. Os provedores OAuth foram simulados nos testes,
+incluindo validação de ID tokens Google assinados por chaves de teste. O uso real
+de Google/GitHub ainda requer credenciais dos aplicativos e registro dos callbacks.
+Estes resultados dizem respeito a esta etapa, sem alterar os registros anteriores.
+
+## Continuidade: visibilidade do login — 21/09/2026
+
+Após o relato de que as funcionalidades não apareciam, o Codex identificou
+que os botões OAuth eram ocultados sem credenciais e que o frontend local na
+porta 3000 retornava HTTP 500 ao encaminhar chamadas para um backend parado.
+Foi iniciado `npm run dev:backend` com a configuração local existente, sem
+alterar credenciais. As alterações locais anteriores foram preservadas.
+
+Os botões Google/GitHub passaram a aparecer acima do formulário, desabilitados
+quando não configurados, com estados de carregamento e erro. Foi acrescentada
+orientação para ativar MFA em Segurança da conta após o login. Não foram usados
+subagentes ou skills nesta etapa.
+
+Validações: `npm run typecheck`, `npm test` (19 testes) e `git diff --check`
+aprovados. As rotas `/api/health`, `/api/oauth/providers`, `/login` e `/seguranca`
+retornaram HTTP 200 pela porta 3000; o HTML do login contém Google, GitHub e a
+orientação MFA. A API confirmou ambos os provedores desabilitados por falta de
+configuração. Não houve validação visual em navegador, reconstrução Docker ou
+login real nos provedores externos nesta etapa.
+
+## Continuidade: inicialização local — 21/09/2026
+
+Após falha no `npm run dev`, o Codex verificou que o backend Docker estava
+saudável, mas MySQL e Redis não publicavam as portas usadas pelo `backend/.env`
+local (3307 e 6380). Foi executado
+`docker compose -f compose.yaml -f compose.dev.yaml up -d mysql redis`,
+preservando volumes e credenciais, e iniciado `npm run dev` em `backend/`.
+O build TypeScript e a inicialização NestJS concluíram com sucesso. As consultas
+a `/api/health` nas portas 3001 e 3000 retornaram `status: ok`; os provedores
+OAuth continuaram desabilitados. Não houve alteração de código, execução da
+suíte de testes ou uso de subagentes nesta etapa.
+
+## Continuidade: origem do cadastro local — 21/09/2026
+
+Após o relato de cadastro bloqueado por “Origem não permitida”, foi confirmado
+que o frontend local na porta 3000 encaminhava para um backend configurado
+para a origem da porta 3002. O `backend/.env` foi ajustado para
+`http://localhost:3000`, mantendo a configuração Docker da raiz na porta 3002.
+MySQL e Redis estavam sem portas publicadas para o backend local; foram
+recriados com `compose.dev.yaml`, preservando os volumes. O backend local foi
+reiniciado com `npm run dev:backend`; o build TypeScript passou.
+
+Verificações HTTP pela porta 3000: health retornou 200; cadastro e login com
+corpo vazio e origem local retornaram 400 por validação de campos, superando
+o bloqueio de origem; uma origem externa continuou retornando 401. Não foram
+criadas contas nem testadas credenciais do usuário. Não houve execução da
+suíte completa, alterações de código ou uso de subagentes nesta etapa.

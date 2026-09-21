@@ -13,6 +13,9 @@ export const usuarios = mysqlTable('usuarios', {
   senhaHash: varchar('senha_hash', { length: 256 }).notNull(),
   perfil: mysqlEnum('perfil', ['Administrador', 'Gestor', 'Operador']).notNull(),
   sessionVersion: int('session_version').notNull().default(0),
+  mfaSecret: text('mfa_secret'),
+  mfaLastStep: int('mfa_last_step').notNull().default(-1),
+  recoveryHashes: text('recovery_hashes'),
 }, table => ({
   emailUnique: uniqueIndex('usuarios_email_unique').on(table.email),
   tenantIndex: index('usuarios_tenant_idx').on(table.tenantId),
@@ -62,4 +65,13 @@ export const simulacoes = mysqlTable('simulacoes', {
   dados: text('dados').notNull(),
 }, table => ({ tenantIndex: index('simulacoes_tenant_criada_idx').on(table.tenantId, table.criadaEm) }));
 
-export const schema = { empresas, usuarios, paineis, rotas, clientes, transportadoras, simulacoes };
+export const identidadesOAuth = mysqlTable('identidades_oauth', {
+  provider: mysqlEnum('provider', ['google', 'github']).notNull(),
+  subject: varchar('subject', { length: 255 }).notNull(),
+  usuarioId: varchar('usuario_id', { length: 64 }).notNull().references(() => usuarios.id, { onDelete: 'cascade' }),
+}, table => ({
+  pk: primaryKey({ columns: [table.provider, table.subject] }),
+  usuarioProvider: uniqueIndex('oauth_usuario_provider').on(table.usuarioId, table.provider),
+}));
+
+export const schema = { empresas, usuarios, paineis, rotas, clientes, transportadoras, simulacoes, identidadesOAuth };

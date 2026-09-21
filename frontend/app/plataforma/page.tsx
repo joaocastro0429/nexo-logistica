@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '../../lib/api';
+
 import { useEffect, useRef, useState } from 'react';
 import { Activity, Bell, ChartNoAxesCombined, CircleDollarSign, LogOut, Menu, PackageCheck, Route, Settings, ShieldCheck, Truck, Users, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -44,7 +46,7 @@ export default function PlataformaPage() {
     if (secao !== 'Visão geral') return;
     const controller = new AbortController();
     setErro('');
-    fetch('/api/plataforma', { cache: 'no-store', signal: controller.signal })
+    apiFetch('/api/plataforma', { cache: 'no-store', signal: controller.signal })
       .then(async (response) => {
         if (response.status === 401) { router.replace('/login'); return; }
         if (!response.ok) throw new Error('Falha ao carregar');
@@ -57,7 +59,7 @@ export default function PlataformaPage() {
   async function sair() {
     setMenuUsuario(false);
     try {
-      const response = await fetch('/api/sessao', { method: 'DELETE' });
+      const response = await apiFetch('/api/sessao', { method: 'DELETE' });
       if (!response.ok) throw new Error('Falha ao sair');
       setPainel(null);
       router.replace('/login');
@@ -78,7 +80,7 @@ export default function PlataformaPage() {
         <div className="sidebar-head"><a className="brand" href="/"><span className="brand-mark"><span /></span><span>nexo<span className="brand-dot">.</span></span></a><button className="sidebar-close" onClick={() => setMenuAberto(false)} aria-label="Fechar menu"><X size={20} /></button></div>
         <div className="sidebar-label">navegação principal</div>
         <nav className="plataforma-nav">{menus.map((menu, index) => <a className={secao === menu ? 'ativo' : ''} onClick={event => { event.preventDefault(); setSecao(menu); setMenuAberto(false); }} href={`#${menu.toLowerCase().replaceAll(' ', '-')}`} key={menu}>{index === 0 ? <ChartNoAxesCombined size={18} /> : menu === 'Pedidos' ? <PackageCheck size={18} /> : menu === 'Rotas' ? <Route size={18} /> : menu === 'Cotações' ? <CircleDollarSign size={18} /> : menu === 'Equipe' ? <Users size={18} /> : <Settings size={18} />}{menu}</a>)}</nav>
-        <div className="sidebar-bottom"><div className="nivel-acesso"><ShieldCheck size={17} /><span><small>nível de acesso</small><strong>{sessao.perfil}</strong></span></div><button className="sair-button" onClick={sair}><LogOut size={16} /> Sair da conta</button></div>
+        <div className="sidebar-bottom"><a className="sair-button" href="/seguranca"><ShieldCheck size={16} /> Segurança da conta</a><div className="nivel-acesso"><ShieldCheck size={17} /><span><small>nível de acesso</small><strong>{sessao.perfil}</strong></span></div><button className="sair-button" onClick={sair}><LogOut size={16} /> Sair da conta</button></div>
       </aside>
 
       <section className="plataforma-content">

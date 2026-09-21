@@ -1,62 +1,158 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { getStore } from './server/store';
-import { SESSION_SECONDS } from './server/auth';
+import { SESSION_SECONDS, REFRESH_SECONDS, type LoginResult, type Tokens } from './server/auth';
+import { availableProviders, frontendOrigin, providerName } from './server/oauth';
 
 const COOKIE = 'nexo-sessao';
-
+const REFRESH = 'nexo-refresh';
+const MFA = 'nexo-mfa';
+function cookieOptions() { return { httpOnly: true, sameSite: 'lax' as const, secure: frontendOrigin().startsWith('https:'), path: '/' }; }
+function input(body: unknown) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new BadRequestException('Dados inválidos.');
+  return body as Record<string, unknown>;
+}
+function field(body: Record<string, unknown>, name: string, max: number, optional = false) {
+  const value = body[name];
+  if (optional && value === undefined) return '';
+  if (typeof value !== 'string' || !value || value.length > max) throw new BadRequestException('Dados inválidos.');
+  return value;
+}
 @Controller()
 export class AppController {
   private readonly store = getStore();
-
   @Get('health')
   async health() { return (await this.store).health(); }
 
-  @Post('cadastro')
-  async cadastrar(@Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
+  private validarOrigem(request: Request) {
+    if (request.headers.origin !== frontendOrigin()) throw new UnauthorizedException('Origem não permitida.');
+  }
+  private async guard(request: Request, scope: string, max = 60) {
     this.validarOrigem(request);
-    response.setHeader('Cache-Control', 'private, no-store');
-    return (await this.store).cadastrar(body);
+    // Não confia em X-Forwarded-For enviado pelo cliente. Atrás do Next, o limite é compartilhado.
+    await (await this.store).limit(`ip:${scope}`, request.ip || request.socket.remoteAddress || 'unknown', max, 900);
+  }
+  private cookies(response: Response, tokens: Tokens) {
+    response.cookie(COOKIE, tokens.access, { ...cookieOptions(), maxAge: SESSION_SECONDS * 1000 });
+    response.cookie(REFRESH, tokens.refresh, { ...cookieOptions(), maxAge: REFRESH_SECONDS * 1000 });
+    response.clearCookie(MFA, cookieOptions());
+  }
+  private clear(response: Response) {
+    for (const name of [COOKIE, REFRESH, MFA]) response.clearCookie(name, cookieOptions());
+  }
+  private async result(result: LoginResult, request: Request, response: Response) {
+    const store = await this.store;
+    await store.logout(request.cookies?.[COOKIE], request.cookies?.[REFRESH], request.cookies?.[MFA]);
+    if ('challenge' in result) {
+      for (const name of [COOKIE, REFRESH]) response.clearCookie(name, cookieOptions());
+      response.cookie(MFA, result.challenge, { ...cookieOptions(), maxAge: 300000 });
+      return { mfaRequired: true };
+    }
+    this.cookies(response, result);
+    return { sessao: await store.session(result.access) };
   }
 
+  @Post('cadastro')
+  async cadastrar(@Body() body: unknown, @Req() request: Request) {
+    await this.guard(request, 'cadastro', 10);
+    return (await this.store).cadastrar(body);
+  }
   @Post('sessao')
   @HttpCode(200)
   async login(@Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
-    this.validarOrigem(request);
-    if (!body || typeof body !== 'object') throw new BadRequestException('Dados inválidos.');
-    const { email, senha, perfil } = body as Record<string, unknown>;
-    if (typeof email !== 'string' || typeof senha !== 'string' || typeof perfil !== 'string' || email.length > 254 || !senha || senha.length > 256) {
-      throw new BadRequestException('Dados inválidos.');
-    }
-    const store = await this.store;
-    const token = await store.login(email, senha, perfil);
-    if (!token) throw new UnauthorizedException('E-mail, senha ou perfil inválidos.');
-    await store.logout(request.cookies?.[COOKIE]);
-    response.cookie(COOKIE, token, { httpOnly: true, sameSite: 'lax', secure: this.frontendOrigin().startsWith('https:'), path: '/', maxAge: SESSION_SECONDS * 1000 });
-    response.setHeader('Cache-Control', 'private, no-store');
-    return { sessao: await store.session(token) };
+    await this.guard(request, 'login');
+    const data = input(body);
+    const result = await (await this.store).passwordLogin(field(data, 'email', 254), field(data, 'senha', 256), field(data, 'perfil', 30, true));
+    if (!result) throw new UnauthorizedException('E-mail, senha ou perfil inválidos.');
+    return this.result(result, request, response);
   }
-
+  @Post('sessao/mfa')
+  @HttpCode(200)
+  async mfa(@Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    await this.guard(request, 'mfa');
+    const result = await (await this.store).completeMfa(request.cookies?.[MFA], field(input(body), 'codigo', 32));
+    if (!result) throw new UnauthorizedException('Código inválido ou desafio expirado.');
+    return this.result(result, request, response);
+  }
+  @Post('sessao/refresh')
+  @HttpCode(200)
+  async refresh(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    await this.guard(request, 'refresh', 120);
+    const result = await (await this.store).refresh(request.cookies?.[REFRESH]);
+    if (!result) { this.clear(response); throw new UnauthorizedException('Sessão expirada. Entre novamente.'); }
+    this.cookies(response, result);
+    return { ok: true };
+  }
   @Delete('sessao')
   async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
     this.validarOrigem(request);
-    await (await this.store).logout(request.cookies?.[COOKIE]);
-    response.clearCookie(COOKIE, { httpOnly: true, sameSite: 'lax', path: '/' });
-    response.setHeader('Cache-Control', 'private, no-store');
+    await (await this.store).logout(request.cookies?.[COOKIE], request.cookies?.[REFRESH], request.cookies?.[MFA]);
+    this.clear(response);
     return { ok: true };
   }
-
   @Get('plataforma')
-  async painel(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
+  async painel(@Req() request: Request) {
     const store = await this.store;
     const sessao = await store.session(request.cookies?.[COOKIE]);
     if (!sessao) throw new UnauthorizedException('Sessão inválida ou expirada.');
-    response.setHeader('Cache-Control', 'private, no-store');
     return { sessao, ...(await store.buscarPainel(sessao.tenantId)) };
   }
-
-  private frontendOrigin() { return process.env.FRONTEND_ORIGIN || 'http://localhost:3000'; }
-  private validarOrigem(request: Request) {
-    if (request.headers.origin !== this.frontendOrigin()) throw new UnauthorizedException('Origem não permitida.');
+  @Get('seguranca')
+  async status(@Req() request: Request) { return (await this.store).securityStatus(request.cookies?.[COOKIE]); }
+  @Post('seguranca/mfa/configurar')
+  async setup(@Body() body: unknown, @Req() request: Request) {
+    await this.guard(request, 'security');
+    return (await this.store).setupMfa(request.cookies?.[COOKIE], field(input(body), 'senha', 256));
+  }
+  @Post('seguranca/mfa/ativar')
+  async enable(@Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    await this.guard(request, 'security');
+    const result = await (await this.store).enableMfa(request.cookies?.[COOKIE], field(input(body), 'codigo', 32));
+    this.clear(response);
+    return result;
+  }
+  @Delete('seguranca/mfa')
+  async disable(@Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    await this.guard(request, 'security');
+    const data = input(body);
+    const result = await (await this.store).disableMfa(request.cookies?.[COOKIE], field(data, 'senha', 256), field(data, 'codigo', 32));
+    this.clear(response);
+    return result;
+  }
+  @Get('oauth/providers')
+  providers() { return availableProviders(); }
+  @Post('oauth/:provider/vincular')
+  async link(@Param('provider') name: string, @Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    await this.guard(request, 'security');
+    const provider = providerName(name);
+    const data = input(body);
+    const store = await this.store;
+    const user = await store.reauthenticate(request.cookies?.[COOKIE], field(data, 'senha', 256), field(data, 'codigo', 32, true));
+    const result = await store.oauth.start(provider, { id: user.id, version: user.sessionVersion });
+    response.cookie(`nexo-oauth-${provider}`, result.browser, { ...cookieOptions(), maxAge: 300000 });
+    return { url: result.url };
+  }
+  @Get('oauth/:provider')
+  async oauth(@Param('provider') name: string, @Req() request: Request, @Res() response: Response) {
+    const provider = providerName(name);
+    await (await this.store).limit('ip:oauth', request.ip || 'unknown', 30, 900);
+    const result = await (await this.store).oauth.start(provider);
+    response.cookie(`nexo-oauth-${provider}`, result.browser, { ...cookieOptions(), maxAge: 300000 });
+    response.redirect(result.url);
+  }
+  @Get('oauth/:provider/callback')
+  async callback(@Param('provider') name: string, @Req() request: Request, @Res() response: Response) {
+    const provider = providerName(name);
+    response.clearCookie(`nexo-oauth-${provider}`, cookieOptions());
+    try {
+      await (await this.store).limit('ip:oauth-callback', request.ip || 'unknown', 60, 900);
+      const result = await (await this.store).oauth.callback(provider, request.query.state, request.query.code, request.cookies?.[`nexo-oauth-${provider}`], request.cookies?.[COOKIE]);
+      if ('linked' in result) { response.redirect(`${frontendOrigin()}/seguranca?vinculado=1`); return; }
+      await this.result(result, request, response);
+      response.redirect(`${frontendOrigin()}${'challenge' in result ? '/login?mfa=1' : '/plataforma'}`);
+    } catch {
+      // Não encaminha mensagens/tokens do provedor para URL ou logs.
+      response.redirect(`${frontendOrigin()}/login?oauth=erro`);
+    }
   }
 }

@@ -8,6 +8,13 @@
       "when": 1789567321035,
       "tag": "0000_solid_loa",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1789983403851,
+      "tag": "0001_chemical_red_wolf",
+      "breakpoints": true
     }
   ]
 }

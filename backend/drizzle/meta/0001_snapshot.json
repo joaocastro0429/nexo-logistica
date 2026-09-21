@@ -1,0 +1,599 @@
+{
+  "version": "5",
+  "dialect": "mysql",
+  "id": "e7342d8e-5f97-49e0-9e65-e3bdb83bd205",
+  "prevId": "817fc11a-e1c4-44d8-ad10-0f1d6c5ba5c1",
+  "tables": {
+    "clientes": {
+      "name": "clientes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "nome": {
+          "name": "nome",
+          "type": "varchar(150)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(254)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "telefone": {
+          "name": "telefone",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "documento": {
+          "name": "documento",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "clientes_tenant_idx": {
+          "name": "clientes_tenant_idx",
+          "columns": [
+            "tenant_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "clientes_tenant_id_empresas_id_fk": {
+          "name": "clientes_tenant_id_empresas_id_fk",
+          "tableFrom": "clientes",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "clientes_id": {
+          "name": "clientes_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "empresas": {
+      "name": "empresas",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "nome": {
+          "name": "nome",
+          "type": "varchar(150)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "empresas_id": {
+          "name": "empresas_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "identidades_oauth": {
+      "name": "identidades_oauth",
+      "columns": {
+        "provider": {
+          "name": "provider",
+          "type": "enum('google','github')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "subject": {
+          "name": "subject",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "oauth_usuario_provider": {
+          "name": "oauth_usuario_provider",
+          "columns": [
+            "usuario_id",
+            "provider"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "identidades_oauth_usuario_id_usuarios_id_fk": {
+          "name": "identidades_oauth_usuario_id_usuarios_id_fk",
+          "tableFrom": "identidades_oauth",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "usuario_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "identidades_oauth_provider_subject_pk": {
+          "name": "identidades_oauth_provider_subject_pk",
+          "columns": [
+            "provider",
+            "subject"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "paineis": {
+      "name": "paineis",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "resumo": {
+          "name": "resumo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "eficiencia": {
+          "name": "eficiencia",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "paineis_tenant_id_empresas_id_fk": {
+          "name": "paineis_tenant_id_empresas_id_fk",
+          "tableFrom": "paineis",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "paineis_tenant_id": {
+          "name": "paineis_tenant_id",
+          "columns": [
+            "tenant_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "rotas": {
+      "name": "rotas",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "nome": {
+          "name": "nome",
+          "type": "varchar(150)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pedidos": {
+          "name": "pedidos",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "previsao": {
+          "name": "previsao",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "rotas_tenant_id_empresas_id_fk": {
+          "name": "rotas_tenant_id_empresas_id_fk",
+          "tableFrom": "rotas",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "rotas_tenant_id_id_pk": {
+          "name": "rotas_tenant_id_id_pk",
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "simulacoes": {
+      "name": "simulacoes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "criada_em": {
+          "name": "criada_em",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "dados": {
+          "name": "dados",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "simulacoes_tenant_criada_idx": {
+          "name": "simulacoes_tenant_criada_idx",
+          "columns": [
+            "tenant_id",
+            "criada_em"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "simulacoes_tenant_id_empresas_id_fk": {
+          "name": "simulacoes_tenant_id_empresas_id_fk",
+          "tableFrom": "simulacoes",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "simulacoes_id": {
+          "name": "simulacoes_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "transportadoras": {
+      "name": "transportadoras",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "nome": {
+          "name": "nome",
+          "type": "varchar(150)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(254)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "telefone": {
+          "name": "telefone",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "taxa_base": {
+          "name": "taxa_base",
+          "type": "decimal(16,4)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valor_kg": {
+          "name": "valor_kg",
+          "type": "decimal(16,4)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valor_km": {
+          "name": "valor_km",
+          "type": "decimal(16,4)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "transportadoras_tenant_idx": {
+          "name": "transportadoras_tenant_idx",
+          "columns": [
+            "tenant_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "transportadoras_tenant_id_empresas_id_fk": {
+          "name": "transportadoras_tenant_id_empresas_id_fk",
+          "tableFrom": "transportadoras",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "transportadoras_id": {
+          "name": "transportadoras_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "usuarios": {
+      "name": "usuarios",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "nome": {
+          "name": "nome",
+          "type": "varchar(150)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(254)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "senha_hash": {
+          "name": "senha_hash",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "perfil": {
+          "name": "perfil",
+          "type": "enum('Administrador','Gestor','Operador')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "session_version": {
+          "name": "session_version",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "mfa_secret": {
+          "name": "mfa_secret",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mfa_last_step": {
+          "name": "mfa_last_step",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": -1
+        },
+        "recovery_hashes": {
+          "name": "recovery_hashes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "usuarios_email_unique": {
+          "name": "usuarios_email_unique",
+          "columns": [
+            "email"
+          ],
+          "isUnique": true
+        },
+        "usuarios_tenant_idx": {
+          "name": "usuarios_tenant_idx",
+          "columns": [
+            "tenant_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "usuarios_tenant_id_empresas_id_fk": {
+          "name": "usuarios_tenant_id_empresas_id_fk",
+          "tableFrom": "usuarios",
+          "tableTo": "empresas",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "usuarios_id": {
+          "name": "usuarios_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    }
+  },
+  "views": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "tables": {},
+    "indexes": {}
+  }
+}

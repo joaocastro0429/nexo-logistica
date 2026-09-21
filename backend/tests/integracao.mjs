@@ -1,3 +1,4 @@
+import { TOTP, Secret } from 'otpauth';
 import { fixture } from '../dist/tests/fixture.js';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -28,7 +29,7 @@ async function req(path, method = 'GET', cookie = '', body, status = 200, origin
   const response = await fetch(`${base}/api/${path}`, { method, headers: { Origin: origin, Cookie: cookie, 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
   const data = await response.json();
   assert.equal(response.status, status, `${method} ${path}: ${JSON.stringify(data)}`);
-  return { data, cookie: response.headers.get('set-cookie')?.split(';')[0] || '' };
+  return { data, cookie: response.headers.getSetCookie().map(value => value.split(';')[0]).join('; ') };
 }
 async function login(email, perfil = 'Administrador') { return (await req('sessao', 'POST', '', { email, perfil, senha: 'NexoDemo@2026' })).cookie; }
 try {
@@ -99,7 +100,22 @@ try {
   await req('gestao/usuarios/aurea-admin', 'DELETE', a, undefined, 409);
   await req('sessao', 'DELETE', a);
   await req('simulacoes', 'GET', a, undefined, 401);
-  console.log('Integração NestJS aprovada: CRUD, perfis, isolamento, cálculo, histórico e revogação.');
+  const securityLogin = await login(cadastro.email);
+  const setup = (await req('seguranca/mfa/configurar', 'POST', securityLogin, { senha: cadastro.senha }, 201)).data;
+  const totp = new TOTP({ secret: Secret.fromBase32(setup.secret) });
+  const enabled = (await req('seguranca/mfa/ativar', 'POST', securityLogin, { codigo: totp.generate() }, 201)).data;
+  await req('plataforma', 'GET', securityLogin, undefined, 401);
+  await req('sessao/refresh', 'POST', securityLogin, undefined, 401);
+  const challenge = await req('sessao', 'POST', '', { email: cadastro.email, senha: cadastro.senha });
+  assert.equal(challenge.data.mfaRequired, true);
+  await req('plataforma', 'GET', challenge.cookie, undefined, 401);
+  const authenticated = await req('sessao/mfa', 'POST', challenge.cookie, { codigo: enabled.recoveryCodes[0] });
+  assert.equal(authenticated.data.sessao.empresa, cadastro.empresa);
+  const rotated = await req('sessao/refresh', 'POST', authenticated.cookie);
+  await req('plataforma', 'GET', rotated.cookie);
+  await req('sessao/refresh', 'POST', authenticated.cookie, undefined, 401);
+  await req('plataforma', 'GET', rotated.cookie, undefined, 401);
+  console.log('Integração NestJS aprovada: MFA, refresh com reuso,  CRUD, perfis, isolamento, cálculo, histórico e revogação.');
 } finally {
   const exit = once(server, 'exit');
   server.kill('SIGTERM');

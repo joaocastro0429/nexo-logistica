@@ -44,3 +44,19 @@
 .acesso-cadastro-info { margin-top: 14px; padding: 12px 14px; border-left: 3px solid var(--lime); background: #eaf0df; color: #4c6258; font-size: 11px; line-height: 1.55; }
 @media (max-width: 800px) { .acesso-page { display: block; }.acesso-intro { min-height: 390px; padding: 28px 24px 30px; }.acesso-copy { padding: 50px 0 35px; }.acesso-copy h1 { font-size: 57px; }.acesso-intro::after { right: -220px; bottom: -300px; }.acesso-panel { width: 100%; padding: 50px 24px 55px; }.perfil-list { grid-template-columns: 1fr; }.perfil-option { min-height: auto; } }
 @media (max-width: 420px) { .acesso-copy h1 { font-size: 48px; } }
+
+.oauth-buttons { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.seguranca-page { max-width: 840px; margin: 0 auto; padding: 32px 16px; }
+.seguranca-page .acesso-panel { width: 100%; padding: 32px; }
+.seguranca-page h1, .seguranca-page h2 { margin: 24px 0 12px; }
+.seguranca-page p { margin: 12px 0; }
+.mfa-secret { overflow-wrap: anywhere; user-select: all; }
+
+.oauth-section { margin-bottom: 22px; }
+.oauth-section .oauth-buttons { margin-top: 0; }
+.oauth-button { flex: 1 1 170px; justify-content: center; border: 1px solid var(--line); color: var(--ink); background: #fff; }
+.oauth-button-unavailable { opacity: .6; cursor: pointer; }
+.oauth-button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.oauth-status { margin: 10px 0 16px; color: #718079; font-size: 12px; line-height: 1.5; }
+.acesso-divider { display: flex; align-items: center; gap: 12px; color: #718079; font-size: 12px; }
+.acesso-divider::before, .acesso-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }

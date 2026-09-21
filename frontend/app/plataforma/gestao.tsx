@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '../../lib/api';
+
 import { FormEvent, useEffect, useState } from 'react';
 import type { Sessao } from '../../lib/types';
 import './gestao.css';
@@ -15,7 +17,7 @@ type Simulacao = {
 };
 const moeda = (valor: number) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`/api/${url}`, { cache: 'no-store', ...options, headers: { 'Content-Type': 'application/json', ...options?.headers } });
+  const response = await apiFetch(`/api/${url}`, { cache: 'no-store', ...options, headers: { 'Content-Type': 'application/json', ...options?.headers } });
   if (response.status === 401) { window.location.assign('/login'); throw new Error('Sua sessão expirou. Entre novamente.'); }
   const dados = await response.json();
   if (!response.ok) throw new Error(typeof dados.message === 'string' ? dados.message : 'Não foi possível concluir a operação.');

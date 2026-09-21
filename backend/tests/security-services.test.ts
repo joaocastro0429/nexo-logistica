@@ -1,0 +1,61 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { TOTP, Secret } from 'otpauth';
+import { digest, redisKey } from '../src/server/security';
+import { fixture } from './fixture';
+import { openStore } from '../src/server/store';
+import { MySqlAutenticacaoRepository } from '../src/infrastructure/repositories/mysql.repositories';
+import { criarAutenticacao, type Tokens } from '../src/server/auth';
+
+test('MySQL/Redis: migração, MFA persistente, concorrência TOTP/refresh, limites atômicos e identidades OAuth', async () => {
+  const f = await fixture();
+  const store = await openStore(f.url);
+  const email = `${randomUUID()}@security.example`;
+  const senha = 'TesteSeguro@2026';
+  try {
+    await store.cadastrar({ nome: 'Segurança', empresa: 'Teste', email, senha });
+    const repository = new MySqlAutenticacaoRepository(f.db.db);
+    const auth = criarAutenticacao(repository, f.redis);
+    const tokens = await store.passwordLogin(email, senha) as Tokens;
+    const user = (await repository.buscarPorEmail(email))!;
+    await repository.vincularOAuth(user.id, 'google', randomUUID());
+    await repository.vincularOAuth(user.id, 'github', randomUUID());
+    assert.deepEqual((await repository.listarOAuth(user.id)).sort(), ['github', 'google']);
+    await assert.rejects(repository.vincularOAuth(user.id, 'github', randomUUID()));
+    const setup = await store.setupMfa(tokens.access, senha);
+    const totp = new TOTP({ secret: Secret.fromBase32(setup.secret) });
+    const { recoveryCodes } = await store.enableMfa(tokens.access, totp.generate());
+    assert.equal(await auth.session(tokens.access), null);
+    assert.equal(await store.refresh(tokens.refresh), null);
+    const persisted = (await repository.buscarUsuario(user.id))!;
+    assert.ok(persisted.mfaSecret && !persisted.mfaSecret.includes(setup.secret));
+    const expired = await auth.finish(persisted);
+    assert.ok('challenge' in expired);
+    await f.redis.pExpire(redisKey(`challenge:${digest(expired.challenge)}`), 1);
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(await auth.completeMfa(expired.challenge, recoveryCodes[0]), null);
+    const challenge = await auth.passwordLogin(email, senha);
+    assert.ok(challenge && 'challenge' in challenge);
+    const results = await Promise.all([auth.completeMfa(challenge.challenge, recoveryCodes[0]), store.completeMfa(challenge.challenge, recoveryCodes[0])]);
+    assert.equal(results.filter(Boolean).length, 1, 'somente uma recuperação pode ser consumida');
+    const valid = results.find(Boolean)!;
+    const renewed = await Promise.all([store.refresh(valid.refresh), auth.refresh(valid.refresh)]);
+    assert.equal(renewed.filter(Boolean).length, 1, 'uma única rotação vence');
+    assert.equal(await auth.session(renewed.find(Boolean)!.access), null, 'reuso concorrente revoga a família');
+    const challenge2 = await auth.passwordLogin(email, senha);
+    assert.ok(challenge2 && 'challenge' in challenge2);
+    const nextCode = totp.generate({ timestamp: Date.now() + 30000 });
+    const valid2 = await auth.completeMfa(challenge2.challenge, nextCode);
+    assert.ok(valid2, 'aceita o próximo passo na janela de tolerância');
+    const challenge3 = await auth.passwordLogin(email, senha);
+    assert.ok(challenge3 && 'challenge' in challenge3);
+    assert.equal(await auth.completeMfa(challenge3.challenge, nextCode), null, 'TOTP não pode ser repetido em outro desafio');
+    const limits = await Promise.allSettled(Array.from({ length: 20 }, () => auth.limit('atomic-test', user.id, 5, 60)));
+    assert.equal(limits.filter(r => r.status === 'fulfilled').length, 5);
+    await store.disableMfa(valid2.access, senha, recoveryCodes[1]);
+    assert.equal(await auth.session(valid2.access), null);
+    assert.equal((await repository.buscarUsuario(user.id))!.mfaSecret, null);
+
+  } finally { await store.close(); await f.close(); }
+});
