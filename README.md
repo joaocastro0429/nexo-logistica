@@ -42,6 +42,10 @@ Esse encaminhamento usa [rewrites do Next.js](https://nextjs.org/docs/app/api-re
 
 ## Como executar
 
+Para publicar uma demonstração acessível pela internet, use o Blueprint Render
+descrito em [Deploy público](docs/deploy.md). A configuração local abaixo usa
+Docker Compose e não substitui os segredos ou backups necessários em produção.
+
 A execução recomendada usa Docker e Docker Compose:
 
 ```bash

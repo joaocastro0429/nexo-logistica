@@ -1,0 +1,57 @@
+services:
+  - type: keyvalue
+    name: nexo-redis
+    plan: free
+    persistenceMode: off
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+  - type: web
+    name: nexo-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    preDeployCommand: node dist/scripts/seed.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 3001
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: nexo-redis
+          property: connectionString
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: MFA_ENCRYPTION_KEY
+        sync: false
+      - key: AUTH_NAMESPACE
+        value: nexo-production
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+
+  - type: web
+    name: nexo-frontend
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /login
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BACKEND_URL
+        sync: false
