@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, ForbiddenException, Get, Param, Post, Put, Query, Req, UnauthorizedException } from '@nestjs/common';
 import type { Request } from 'express';
 import { getStore } from './server/store';
+import { ClientIp } from './http/decorators/client-ip.decorator';
 
 @Controller()
 export class GestaoController {
@@ -18,18 +19,18 @@ export class GestaoController {
   }
 
   @Post('gestao/:tipo')
-  async cadastrar(@Req() req: Request, @Param('tipo') tipo: string, @Body() body: unknown) {
-    return (await this.store).salvar(await this.sessao(req, true), tipo, body, undefined, { ip: req.ip || req.socket.remoteAddress });
+  async cadastrar(@Req() req: Request, @Param('tipo') tipo: string, @Body() body: unknown, @ClientIp() ip?: string) {
+    return (await this.store).salvar(await this.sessao(req, true), tipo, body, undefined, { ip });
   }
 
   @Put('gestao/:tipo/:id')
-  async editar(@Req() req: Request, @Param('tipo') tipo: string, @Param('id') id: string, @Body() body: unknown) {
-    return (await this.store).salvar(await this.sessao(req, true), tipo, body, id, { ip: req.ip || req.socket.remoteAddress });
+  async editar(@Req() req: Request, @Param('tipo') tipo: string, @Param('id') id: string, @Body() body: unknown, @ClientIp() ip?: string) {
+    return (await this.store).salvar(await this.sessao(req, true), tipo, body, id, { ip });
   }
 
   @Delete('gestao/:tipo/:id')
-  async remover(@Req() req: Request, @Param('tipo') tipo: string, @Param('id') id: string) {
-    return (await this.store).remover(await this.sessao(req, true), tipo, id, { ip: req.ip || req.socket.remoteAddress });
+  async remover(@Req() req: Request, @Param('tipo') tipo: string, @Param('id') id: string, @ClientIp() ip?: string) {
+    return (await this.store).remover(await this.sessao(req, true), tipo, id, { ip });
   }
 
   @Post('simulacoes')

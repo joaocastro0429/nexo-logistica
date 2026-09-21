@@ -89,6 +89,11 @@ O MySQL usa tabelas compartilhadas com índices por empresa e transações InnoD
 
 ## Onde está cada parte
 
+A organização das camadas e suas regras de dependência está descrita em
+[Arquitetura do backend](docs/arquitetura.md). Controllers cuidam do HTTP,
+DTOs validam entradas de transporte, os serviços em `backend/src/server` aplicam
+os casos de uso e os repositórios isolam a persistência.
+
 | Arquivo | Responsabilidade |
 | --- | --- |
 | `backend/src/app.controller.ts` | Valida a sessão e pede os dados da empresa |
@@ -111,6 +116,9 @@ Autenticação e multi-tenant têm responsabilidades diferentes: a autenticaçã
 Para demonstrar, entre na Áurea e salve uma simulação. Depois entre na Vertex: o histórico e os indicadores dessa empresa não incluem a simulação da Áurea. Empresas sem simulações exibem indicadores zerados. Para comparar simultaneamente, use perfis separados do navegador, pois as abas compartilham a sessão.
 
 ## Testes e limites
+
+A estratégia, a matriz de cobertura e os pré-requisitos dos testes estão em
+[docs/testes.md](docs/testes.md).
 
 ```bash
 npm test
