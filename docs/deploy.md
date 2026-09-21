@@ -6,9 +6,9 @@ O projeto usa **Render** como plataforma principal porque os Dockerfiles já
 existem para o frontend Next.js e o backend NestJS. O Blueprint em
 [`render.yaml`](../render.yaml) cria:
 
-- `nexo-frontend`: serviço web público Next.js.
-- `nexo-backend`: serviço web NestJS com healthcheck e seed idempotente.
-- `nexo-redis`: Redis gerenciado para sessões, refresh tokens e limites; o plano
+- `desafio-logistica1-frontend`: serviço web público Next.js.
+- `desafio-logistica1-backend`: serviço web NestJS com healthcheck e seed idempotente.
+- `desafio-logistica1-redis`: Redis gerenciado para sessões, refresh tokens e limites; o plano
    gratuito é efêmero e adequado apenas para demonstração.
 
 O MySQL continua externo. O Render não oferece um MySQL gerenciado compatível
@@ -30,7 +30,7 @@ Não substitua o MySQL por PostgreSQL sem uma migração de banco e de Drizzle.
 3. Revise o serviço Redis e o custo do plano escolhido. O Blueprint usa o plano
    gratuito, com persistência desligada, para reduzir o custo da demonstração.
 4. Crie o Blueprint. O Render exibirá os hosts dos serviços web.
-5. No serviço `nexo-backend`, configure os valores secretos:
+5. No serviço `desafio-logistica1-backend`, configure os valores secretos:
 
    - `DATABASE_URL`: URL completa do MySQL externo.
    - `FRONTEND_ORIGIN`: URL pública exata do frontend, sem barra final.
@@ -38,7 +38,7 @@ Não substitua o MySQL por PostgreSQL sem uma migração de banco e de Drizzle.
    - `MFA_ENCRYPTION_KEY`: 64 caracteres hexadecimais aleatórios.
 
 6. Faça um deploy do backend e confirme `https://HOST_BACKEND/api/health`.
-7. No serviço `nexo-frontend`, defina `BACKEND_URL` como a URL pública do
+7. No serviço `desafio-logistica1-frontend`, defina `BACKEND_URL` como a URL pública do
    backend, incluindo `https://` e sem `/api` no final.
 8. Faça um deploy do frontend e abra `https://HOST_FRONTEND/login`.
 9. Após o primeiro deploy, o `preDeployCommand` executa
