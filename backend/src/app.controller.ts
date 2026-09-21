@@ -1,23 +1,16 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { getStore } from './server/store';
 import { SESSION_SECONDS, REFRESH_SECONDS, type LoginResult, type Tokens } from './server/auth';
 import { availableProviders, frontendOrigin, providerName } from './server/oauth';
+import { parseCodeDto, parseLoginDto, parseOAuthLinkDto, parsePasswordDto } from './application/dtos/auth.dto';
+import { AuthPresenter } from './application/presenters/auth.presenter';
+import { ClientIp } from './http/decorators/client-ip.decorator';
 
 const COOKIE = 'nexo-sessao';
 const REFRESH = 'nexo-refresh';
 const MFA = 'nexo-mfa';
 function cookieOptions() { return { httpOnly: true, sameSite: 'lax' as const, secure: frontendOrigin().startsWith('https:'), path: '/' }; }
-function input(body: unknown) {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new BadRequestException('Dados inválidos.');
-  return body as Record<string, unknown>;
-}
-function field(body: Record<string, unknown>, name: string, max: number, optional = false) {
-  const value = body[name];
-  if (optional && value === undefined) return '';
-  if (typeof value !== 'string' || !value || value.length > max) throw new BadRequestException('Dados inválidos.');
-  return value;
-}
 @Controller()
 export class AppController {
   private readonly store = getStore();
@@ -49,7 +42,7 @@ export class AppController {
       return { mfaRequired: true };
     }
     this.cookies(response, result);
-    return { sessao: await store.session(result.access) };
+    return AuthPresenter.login(result, await store.session(result.access));
   }
 
   @Post('cadastro')
@@ -59,18 +52,18 @@ export class AppController {
   }
   @Post('sessao')
   @HttpCode(200)
-  async login(@Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
+  async login(@Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response, @ClientIp() ip?: string) {
     await this.guard(request, 'login');
-    const data = input(body);
-    const result = await (await this.store).passwordLogin(field(data, 'email', 254), field(data, 'senha', 256), field(data, 'perfil', 30, true), { ip: request.ip || request.socket.remoteAddress });
+    const data = parseLoginDto(body);
+    const result = await (await this.store).passwordLogin(data.email, data.senha, data.perfil, { ip });
     if (!result) throw new UnauthorizedException('E-mail, senha ou perfil inválidos.');
     return this.result(result, request, response);
   }
   @Post('sessao/mfa')
   @HttpCode(200)
-  async mfa(@Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
+  async mfa(@Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response, @ClientIp() ip?: string) {
     await this.guard(request, 'mfa');
-    const result = await (await this.store).completeMfa(request.cookies?.[MFA], field(input(body), 'codigo', 32), { ip: request.ip || request.socket.remoteAddress });
+    const result = await (await this.store).completeMfa(request.cookies?.[MFA], parseCodeDto(body).codigo, { ip });
     if (!result) throw new UnauthorizedException('Código inválido ou desafio expirado.');
     return this.result(result, request, response);
   }
@@ -84,9 +77,9 @@ export class AppController {
     return { ok: true };
   }
   @Delete('sessao')
-  async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
+  async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response, @ClientIp() ip?: string) {
     this.validarOrigem(request);
-    await (await this.store).logout(request.cookies?.[COOKIE], request.cookies?.[REFRESH], request.cookies?.[MFA], { ip: request.ip || request.socket.remoteAddress });
+    await (await this.store).logout(request.cookies?.[COOKIE], request.cookies?.[REFRESH], request.cookies?.[MFA], { ip });
     this.clear(response);
     return { ok: true };
   }
@@ -102,20 +95,20 @@ export class AppController {
   @Post('seguranca/mfa/configurar')
   async setup(@Body() body: unknown, @Req() request: Request) {
     await this.guard(request, 'security');
-    return (await this.store).setupMfa(request.cookies?.[COOKIE], field(input(body), 'senha', 256));
+    return (await this.store).setupMfa(request.cookies?.[COOKIE], parsePasswordDto(body).senha);
   }
   @Post('seguranca/mfa/ativar')
   async enable(@Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
     await this.guard(request, 'security');
-    const result = await (await this.store).enableMfa(request.cookies?.[COOKIE], field(input(body), 'codigo', 32));
+    const result = await (await this.store).enableMfa(request.cookies?.[COOKIE], parseCodeDto(body).codigo);
     this.clear(response);
     return result;
   }
   @Delete('seguranca/mfa')
   async disable(@Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
     await this.guard(request, 'security');
-    const data = input(body);
-    const result = await (await this.store).disableMfa(request.cookies?.[COOKIE], field(data, 'senha', 256), field(data, 'codigo', 32));
+    const data = parsePasswordDto(body);
+    const result = await (await this.store).disableMfa(request.cookies?.[COOKIE], data.senha, parseCodeDto(body).codigo);
     this.clear(response);
     return result;
   }
@@ -125,9 +118,9 @@ export class AppController {
   async link(@Param('provider') name: string, @Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
     await this.guard(request, 'security');
     const provider = providerName(name);
-    const data = input(body);
+    const data = parseOAuthLinkDto(body);
     const store = await this.store;
-    const user = await store.reauthenticate(request.cookies?.[COOKIE], field(data, 'senha', 256), field(data, 'codigo', 32, true));
+    const user = await store.reauthenticate(request.cookies?.[COOKIE], data.senha, data.codigo || '');
     const result = await store.oauth.start(provider, { id: user.id, version: user.sessionVersion });
     response.cookie(`nexo-oauth-${provider}`, result.browser, { ...cookieOptions(), maxAge: 300000 });
     return { url: result.url };
