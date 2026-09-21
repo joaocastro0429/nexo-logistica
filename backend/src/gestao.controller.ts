@@ -19,17 +19,17 @@ export class GestaoController {
 
   @Post('gestao/:tipo')
   async cadastrar(@Req() req: Request, @Param('tipo') tipo: string, @Body() body: unknown) {
-    return (await this.store).salvar(await this.sessao(req, true), tipo, body);
+    return (await this.store).salvar(await this.sessao(req, true), tipo, body, undefined, { ip: req.ip || req.socket.remoteAddress });
   }
 
   @Put('gestao/:tipo/:id')
   async editar(@Req() req: Request, @Param('tipo') tipo: string, @Param('id') id: string, @Body() body: unknown) {
-    return (await this.store).salvar(await this.sessao(req, true), tipo, body, id);
+    return (await this.store).salvar(await this.sessao(req, true), tipo, body, id, { ip: req.ip || req.socket.remoteAddress });
   }
 
   @Delete('gestao/:tipo/:id')
   async remover(@Req() req: Request, @Param('tipo') tipo: string, @Param('id') id: string) {
-    return (await this.store).remover(await this.sessao(req, true), tipo, id);
+    return (await this.store).remover(await this.sessao(req, true), tipo, id, { ip: req.ip || req.socket.remoteAddress });
   }
 
   @Post('simulacoes')

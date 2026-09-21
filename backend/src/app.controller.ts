@@ -62,7 +62,7 @@ export class AppController {
   async login(@Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
     await this.guard(request, 'login');
     const data = input(body);
-    const result = await (await this.store).passwordLogin(field(data, 'email', 254), field(data, 'senha', 256), field(data, 'perfil', 30, true));
+    const result = await (await this.store).passwordLogin(field(data, 'email', 254), field(data, 'senha', 256), field(data, 'perfil', 30, true), { ip: request.ip || request.socket.remoteAddress });
     if (!result) throw new UnauthorizedException('E-mail, senha ou perfil inválidos.');
     return this.result(result, request, response);
   }
@@ -70,7 +70,7 @@ export class AppController {
   @HttpCode(200)
   async mfa(@Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
     await this.guard(request, 'mfa');
-    const result = await (await this.store).completeMfa(request.cookies?.[MFA], field(input(body), 'codigo', 32));
+    const result = await (await this.store).completeMfa(request.cookies?.[MFA], field(input(body), 'codigo', 32), { ip: request.ip || request.socket.remoteAddress });
     if (!result) throw new UnauthorizedException('Código inválido ou desafio expirado.');
     return this.result(result, request, response);
   }
@@ -86,7 +86,7 @@ export class AppController {
   @Delete('sessao')
   async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
     this.validarOrigem(request);
-    await (await this.store).logout(request.cookies?.[COOKIE], request.cookies?.[REFRESH], request.cookies?.[MFA]);
+    await (await this.store).logout(request.cookies?.[COOKIE], request.cookies?.[REFRESH], request.cookies?.[MFA], { ip: request.ip || request.socket.remoteAddress });
     this.clear(response);
     return { ok: true };
   }

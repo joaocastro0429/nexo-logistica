@@ -214,6 +214,34 @@ Prefixo `/api`. Senha, código e dados de cadastro são recebidos em JSON.
 | POST | `/oauth/:provider/vincular` | `{senha,codigo?}` e sessão; retorna URL de autorização |
 | GET | `/oauth/:provider/callback` | Consome state/code, vincula ou inicia sessão/desafio MFA |
 
+## Auditoria e rastreabilidade
+
+As ações relevantes são persistidas na tabela `auditoria`, criada pela migração
+`backend/drizzle/0002_familiar_longshot.sql`. Cada evento contém identificador,
+data UTC, empresa, usuário responsável quando conhecido, ação, recurso, alvo,
+endereço IP e detalhes estruturados. A empresa vem da sessão ou do cadastro
+recém-criado; nenhum `tenant_id` enviado pelo navegador participa da autorização.
+
+Os eventos atualmente registrados são:
+
+| Ação | Quando ocorre |
+| --- | --- |
+| `LOGIN` | Login local concluído, inclusive após MFA ou OAuth |
+| `LOGIN_FALHOU` | Credenciais locais inválidas; sem e-mail, senha ou token nos detalhes |
+| `LOGOUT` | Encerramento de uma sessão identificada |
+| `USUARIO_CRIADO` | Cadastro inicial da empresa ou criação de usuário por administrador |
+| `PERMISSAO_ALTERADA` | Alteração do perfil de um usuário |
+| `USUARIO_REMOVIDO` | Remoção de usuário |
+| `OPERACAO_ADMINISTRATIVA` | Criação, alteração ou remoção de clientes e transportadoras |
+
+Senhas, hashes, tokens, códigos MFA, segredos OAuth e corpos completos das
+requisições não são gravados. Para consultas operacionais, filtre por
+`tenant_id`, `criada_em`, `acao` ou `usuario_id`; os índices da tabela atendem
+às consultas por empresa/data e ação/data. A entrega registra e persiste os
+eventos, mas ainda não fornece uma tela ou endpoint de consulta de auditoria.
+Defina retenção, acesso restrito e exportação conforme a política de produção;
+o acesso direto ao banco deve ficar limitado à equipe autorizada.
+
 ## Persistência e manutenção
 
 A migração `backend/drizzle/0001_chemical_red_wolf.sql` adiciona `mfa_secret`,

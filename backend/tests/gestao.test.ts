@@ -6,14 +6,14 @@ import { criarGestao, calcularFrete } from '../src/server/gestao';
 import { criarAutenticacao } from '../src/server/auth';
 import { cadastrarDemonstracao } from '../src/server/demo';
 import type { Sessao } from '../src/types';
-import { MySqlAutenticacaoRepository, MySqlGestaoRepository } from '../src/infrastructure/repositories/mysql.repositories';
+import { MySqlAuditoriaRepository, MySqlAutenticacaoRepository, MySqlGestaoRepository } from '../src/infrastructure/repositories/mysql.repositories';
 
 test('CRUD, permissões e relacionamentos respeitam a empresa; histórico preserva os valores', async () => {
     const bancoTeste = await fixture();
     const db = bancoTeste.db;
     try {
         (await cadastrarDemonstracao(db));
-        const store = criarGestao(new MySqlGestaoRepository(db.db));
+        const store = criarGestao(new MySqlGestaoRepository(db.db), new MySqlAuditoriaRepository(db.db));
         const auth = criarAutenticacao(new MySqlAutenticacaoRepository(db.db), bancoTeste.redis);
         const sessao = async (email: string, perfil: string) => (await auth.session((await auth.login(email, 'NexoDemo@2026', perfil))!))!;
         const a = (await sessao('admin@aurea.com', 'Administrador'));
@@ -72,6 +72,11 @@ test('CRUD, permissões e relacionamentos respeitam a empresa; histórico preser
         (await store.remover(a, 'transportadoras', entrada.transportadoraId));
         (await store.remover(a, 'clientes', entrada.clienteId));
         assert.deepEqual((await store.historico(a, simulacao.id)), simulacao);
+        const [auditoria] = await db.pool.query('SELECT acao, recurso FROM auditoria WHERE tenant_id = ? ORDER BY criada_em', ['aurea']);
+        const eventos = auditoria as { acao: string; recurso: string }[];
+        assert.ok(eventos.some(evento => evento.acao === 'USUARIO_CRIADO' && evento.recurso === 'usuarios'));
+        assert.ok(eventos.some(evento => evento.acao === 'PERMISSAO_ALTERADA' && evento.recurso === 'usuarios'));
+        assert.ok(eventos.some(evento => evento.acao === 'OPERACAO_ADMINISTRATIVA' && evento.recurso === 'transportadoras'));
         (await negar(async () => (await store.listar(a, 'usuarios; DROP TABLE empresas')), 404));
     }
     finally {

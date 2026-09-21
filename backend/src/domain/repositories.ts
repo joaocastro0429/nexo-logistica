@@ -15,6 +15,19 @@ export type UsuarioPersistido = {
 
 export type Registro = Record<string, unknown>;
 export type Recurso = 'usuarios' | 'clientes' | 'transportadoras';
+export type EventoAuditoria = {
+  tenantId?: string | null;
+  usuarioId?: string | null;
+  acao: string;
+  recurso?: string | null;
+  recursoId?: string | null;
+  ip?: string | null;
+  detalhes?: Record<string, unknown>;
+};
+
+export interface AuditoriaRepository {
+  registrar(evento: EventoAuditoria): Promise<void>;
+}
 
 export interface AutenticacaoRepository {
   buscarUsuario(id: string): Promise<UsuarioPersistido | null>;

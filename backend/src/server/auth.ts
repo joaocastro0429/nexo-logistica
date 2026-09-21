@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { TOTP, Secret } from 'otpauth';
 import { UnauthorizedException, ConflictException } from '@nestjs/common';
-import type { AutenticacaoRepository, UsuarioPersistido } from '../domain/repositories';
+import type { AuditoriaRepository, AutenticacaoRepository, UsuarioPersistido } from '../domain/repositories';
 import type { Redis } from './redis';
 import type { Sessao } from '../types';
 import { createLimiter, decrypt, digest, encrypt, randomToken, redisKey, securityConfig, verifyPassword } from './security';
@@ -18,9 +18,11 @@ export const chaveSessao = (token: string) => {
   const data = jwt.decode(token);
   return redisKey(`sessao:${digest(typeof data === 'object' && typeof data?.sid === 'string' ? data.sid : token)}`);
 };
-export function criarAutenticacao(repository: AutenticacaoRepository, redis: Redis) {
+type AuditContext = { ip?: string };
+export function criarAutenticacao(repository: AutenticacaoRepository, redis: Redis, auditoria?: AuditoriaRepository) {
   const config = securityConfig();
   const limit = createLimiter(redis);
+  const registrar = (evento: Parameters<AuditoriaRepository['registrar']>[0]) => auditoria?.registrar(evento) || Promise.resolve();
   const familyKey = (sid: string) => redisKey(`sessao:${digest(sid)}`);
   const refreshKey = (token: string) => redisKey(`refresh:${digest(token)}`);
   function claims(token: string, ignoreExpiration = false) {
@@ -53,8 +55,12 @@ export function criarAutenticacao(repository: AutenticacaoRepository, redis: Red
       .set(refreshKey(refresh), sid, { EX: REFRESH_SECONDS }).exec();
     return { access: access(sid, user.id), refresh };
   }
-  async function finish(user: UsuarioPersistido): Promise<LoginResult> {
-    if (!user.mfaSecret) return issue(user);
+  async function finish(user: UsuarioPersistido, context?: AuditContext): Promise<LoginResult> {
+    if (!user.mfaSecret) {
+      const result = await issue(user);
+      await registrar({ tenantId: user.tenantId, usuarioId: user.id, acao: 'LOGIN', ip: context?.ip });
+      return result;
+    }
     const challenge = randomToken();
     await redis.set(redisKey(`challenge:${digest(challenge)}`), JSON.stringify({ id: user.id, version: user.sessionVersion }), { EX: 300 });
     return { challenge };
@@ -66,14 +72,24 @@ export function criarAutenticacao(repository: AutenticacaoRepository, redis: Red
     const valid = await verifyPassword(senha, user?.senhaHash);
     return user && valid && (!perfil || user.perfil === perfil) ? user : null;
   }
-  async function passwordLogin(email: string, senha: string, perfil?: string) {
+  async function passwordLogin(email: string, senha: string, perfil?: string, context?: AuditContext) {
     const user = await passwordUser(email, senha, perfil);
-    return user ? finish(user) : null;
+    if (!user) {
+      await registrar({ acao: 'LOGIN_FALHOU', ip: context?.ip, detalhes: { motivo: 'credenciais_invalidas' } });
+      return null;
+    }
+    return finish(user, context);
   }
   // Compatibilidade dos consumidores internos: nunca emite acesso sem o segundo fator.
-  async function login(email: string, senha: string, perfil: string) {
+  async function login(email: string, senha: string, perfil: string, context?: AuditContext) {
     const user = await passwordUser(email, senha, perfil);
-    return user && !user.mfaSecret ? (await issue(user)).access : null;
+    if (!user || user.mfaSecret) {
+      await registrar({ acao: 'LOGIN_FALHOU', ip: context?.ip, detalhes: { motivo: 'credenciais_invalidas' } });
+      return null;
+    }
+    const result = (await issue(user)).access;
+    await registrar({ tenantId: user.tenantId, usuarioId: user.id, acao: 'LOGIN', ip: context?.ip });
+    return result;
   }
   async function refresh(token: string | undefined): Promise<Tokens | null> {
     if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
@@ -95,14 +111,16 @@ redis.call('SET', KEYS[2], ARGV[3], 'EX', ttl); return 1`, {
     });
     return Number(result) === 1 ? { access: access(sid, family.usuarioId), refresh: next } : null;
   }
-  async function logout(token: string | undefined, refreshToken?: string, challenge?: string) {
+  async function logout(token: string | undefined, refreshToken?: string, challenge?: string, context?: AuditContext) {
     if (challenge && /^[a-f0-9]{64}$/.test(challenge)) await redis.del(redisKey(`challenge:${digest(challenge)}`));
     const data = token ? claims(token, true) : null;
+    const user = data ? await repository.buscarUsuario(data.sub!) : null;
     if (data) await redis.del(familyKey(data.sid));
     if (refreshToken && /^[a-f0-9]{64}$/.test(refreshToken)) {
       const sid = await redis.get(refreshKey(refreshToken));
       if (sid) await redis.del(familyKey(sid));
     }
+    if (user) await registrar({ tenantId: user.tenantId, usuarioId: user.id, acao: 'LOGOUT', ip: context?.ip });
   }
   function totp(secret: string) { return new TOTP({ issuer: 'Nexo', label: 'Nexo', algorithm: 'SHA1', digits: 6, period: 30, secret: Secret.fromBase32(secret) }); }
   function step(secret: string, code: string) {
@@ -120,7 +138,7 @@ redis.call('SET', KEYS[2], ARGV[3], 'EX', ttl); return 1`, {
     const hash = digest(code);
     return hashes.includes(hash) && repository.consumirRecovery(user.id, user.recoveryHashes!, JSON.stringify(hashes.filter(item => item !== hash)));
   }
-  async function completeMfa(challenge: string | undefined, code: string) {
+  async function completeMfa(challenge: string | undefined, code: string, context?: AuditContext) {
     if (!challenge || !/^[a-f0-9]{64}$/.test(challenge)) return null;
     const key = redisKey(`challenge:${digest(challenge)}`);
     const raw = await redis.get(key);
@@ -130,7 +148,9 @@ redis.call('SET', KEYS[2], ARGV[3], 'EX', ttl); return 1`, {
     if (!user || user.sessionVersion !== data.version || !await factor(user, code)) return null;
     // Apenas uma requisição pode concluir o mesmo desafio.
     if (!await redis.getDel(key)) return null;
-    return issue(user);
+    const result = await issue(user);
+    await registrar({ tenantId: user.tenantId, usuarioId: user.id, acao: 'LOGIN', ip: context?.ip, detalhes: { fator: 'mfa' } });
+    return result;
   }
   async function requireUser(token: string | undefined) {
     const sessao = await identity(token);

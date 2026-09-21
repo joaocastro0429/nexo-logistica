@@ -74,4 +74,19 @@ export const identidadesOAuth = mysqlTable('identidades_oauth', {
   usuarioProvider: uniqueIndex('oauth_usuario_provider').on(table.usuarioId, table.provider),
 }));
 
-export const schema = { empresas, usuarios, paineis, rotas, clientes, transportadoras, simulacoes, identidadesOAuth };
+export const auditoria = mysqlTable('auditoria', {
+  id: varchar('id', { length: 64 }).primaryKey(),
+  tenantId: varchar('tenant_id', { length: 64 }).references(() => empresas.id),
+  usuarioId: varchar('usuario_id', { length: 64 }).references(() => usuarios.id, { onDelete: 'set null' }),
+  acao: varchar('acao', { length: 80 }).notNull(),
+  recurso: varchar('recurso', { length: 80 }),
+  recursoId: varchar('recurso_id', { length: 64 }),
+  ip: varchar('ip', { length: 45 }),
+  detalhes: text('detalhes'),
+  criadaEm: varchar('criada_em', { length: 30 }).notNull(),
+}, table => ({
+  tenantDateIndex: index('auditoria_tenant_criada_idx').on(table.tenantId, table.criadaEm),
+  actionDateIndex: index('auditoria_acao_criada_idx').on(table.acao, table.criadaEm),
+}));
+
+export const schema = { empresas, usuarios, paineis, rotas, clientes, transportadoras, simulacoes, identidadesOAuth, auditoria };

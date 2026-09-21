@@ -2,8 +2,9 @@ import { randomBytes, randomUUID, scryptSync } from 'node:crypto';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import type { Banco } from './database';
 import { empresas, usuarios } from '../infrastructure/database/schema';
+import type { AuditoriaRepository } from '../domain/repositories';
 
-export function criarCadastro(db: Banco) {
+export function criarCadastro(db: Banco, auditoria?: AuditoriaRepository) {
   return async function cadastrar(body: unknown) {
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new BadRequestException('Dados inválidos.');
     const dados = body as Record<string, unknown>;
@@ -20,17 +21,21 @@ export function criarCadastro(db: Banco) {
     if (typeof senha !== 'string' || senha.length < 8 || senha.length > 256) throw new BadRequestException('A senha deve ter entre 8 e 256 caracteres.');
     const salt = randomBytes(16).toString('hex');
     const senhaHash = `${salt}:${scryptSync(senha, salt, 64).toString('hex')}`;
+    let tenantId = '';
+    let usuarioId = '';
     try {
       await db.transaction(async database => {
-        const tenantId = randomUUID();
+        tenantId = randomUUID();
+        usuarioId = randomUUID();
         await database.insert(empresas).values({ id: tenantId, nome: empresa });
-        await database.insert(usuarios).values({ id: randomUUID(), tenantId, nome, email, senhaHash, perfil: 'Administrador' });
+        await database.insert(usuarios).values({ id: usuarioId, tenantId, nome, email, senhaHash, perfil: 'Administrador' });
       });
     } catch (error) {
       const erro = error as { code?: string; cause?: { code?: string } };
       if (erro.code === 'ER_DUP_ENTRY' || erro.cause?.code === 'ER_DUP_ENTRY') throw new ConflictException('Este e-mail já está cadastrado. Entre com sua conta ou utilize outro e-mail.');
       throw error;
     }
+    if (auditoria) await auditoria.registrar({ tenantId, usuarioId, acao: 'USUARIO_CRIADO', recurso: 'usuarios', recursoId: usuarioId, detalhes: { origem: 'cadastro_empresa', perfil: 'Administrador' } });
     return { ok: true };
   };
 }
