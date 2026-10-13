@@ -237,3 +237,10 @@ corpo vazio e origem local retornaram 400 por validação de campos, superando
 o bloqueio de origem; uma origem externa continuou retornando 401. Não foram
 criadas contas nem testadas credenciais do usuário. Não houve execução da
 suíte completa, alterações de código ou uso de subagentes nesta etapa.
+
+
+## Apresentação do portfólio — 13 de outubro de 2026
+
+Com auxílio do Codex, o início do README recebeu um resumo do produto, uma tabela de funcionalidades, links para a documentação e um roteiro de demonstração. A alteração foi preparada a partir da documentação e dos arquivos existentes, preservando o registro de uso de IA e as limitações técnicas. Não houve alteração no código da aplicação.
+
+Os caminhos dos documentos e o conteúdo publicado foram conferidos no GitHub. Não foram executados testes, build ou demonstração da aplicação nesta etapa de apresentação.
