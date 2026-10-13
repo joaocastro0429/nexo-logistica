@@ -1,6 +1,42 @@
-# Nexo
+# Nexo — plataforma de logística
 
-Interface de logística com frontend Next.js e backend NestJS separados. O painel apresenta indicadores e insights calculados sobre o histórico de simulações.
+Aplicação de portfólio para **simular fretes, gerenciar cadastros e acompanhar o histórico de cada empresa**. Frontend Next.js e backend NestJS separados, com persistência em MySQL e sessões em Redis.
+
+**Stack:** TypeScript · Next.js · NestJS · MySQL · Drizzle ORM · Redis · Docker Compose
+
+## Visão rápida do projeto
+
+| Área | Implementação |
+| --- | --- |
+| Operação | Cadastro de clientes e transportadoras, cálculo de frete e histórico com snapshots |
+| Acesso | Perfis Administrador, Gestor e Operador, com isolamento dos dados por empresa |
+| Autenticação | Login local, JWT, refresh token, MFA/TOTP e OAuth com configuração externa |
+| Painel | Indicadores e insights calculados sobre as simulações da empresa |
+| Importação | Clientes por CSV, processamento em segundo plano e atualização via SSE |
+| Qualidade | Testes no backend, migrações versionadas e documentação de arquitetura e limites |
+
+Este é um projeto de demonstração. Os limites de execução e os requisitos para produção estão descritos abaixo; os insights usam regras determinísticas.
+
+## Por onde começar a avaliação
+
+- [Como executar](#como-executar): ambiente local e contas fictícias.
+- [Arquitetura](docs/arquitetura.md): organização e responsabilidades do backend.
+- [Testes](docs/testes.md): estratégia, cobertura e pré-requisitos.
+- [Segurança](docs/seguranca.md): autenticação, configuração e limites.
+- [Integrações e importações](docs/integracoes-e-importacoes.md): CSV, SSE e serviços externos.
+- [Uso de IA](docs/uso-de-ia.md): contexto e processo de desenvolvimento.
+
+### Roteiro de demonstração
+
+Após iniciar o ambiente e executar o seed conforme a seção de execução:
+
+1. Entre com uma conta de demonstração da Áurea.
+2. Consulte clientes e transportadoras e faça uma simulação de frete.
+3. Abra o histórico para conferir entradas e detalhamento do cálculo.
+4. Volte ao painel para observar os indicadores calculados.
+5. Saia e entre com uma conta da Vertex para comparar os dados isolados por empresa.
+
+A distância é informada pelo usuário. O cálculo é demonstrativo e não representa uma cotação comercial.
 
 ## Uso de IA e contexto de desenvolvimento
 
