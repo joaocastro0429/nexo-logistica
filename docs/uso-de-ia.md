@@ -244,3 +244,14 @@ suíte completa, alterações de código ou uso de subagentes nesta etapa.
 Com auxílio do Codex, o início do README recebeu um resumo do produto, uma tabela de funcionalidades, links para a documentação e um roteiro de demonstração. A alteração foi preparada a partir da documentação e dos arquivos existentes, preservando o registro de uso de IA e as limitações técnicas. Não houve alteração no código da aplicação.
 
 Os caminhos dos documentos e o conteúdo publicado foram conferidos no GitHub. Não foram executados testes, build ou demonstração da aplicação nesta etapa de apresentação.
+
+
+## Correção assistida em 14/10/2026
+
+Comparação do ZIP do usuário com o commit f862602 publicado na Vercel.
+Foi constatado que o commit publicado não usava MYSQL_SSL/MYSQL_SSL_CA e
+executava migrações durante a inicialização. Preparada configuração TLS
+compartilhada com migrações, execução separada de migrações na Vercel e
+diagnóstico seguro de inicialização. npm test aprovou 30 testes do backend.
+A consulta de logs remotos pelo plugin retornou 403. Não houve migração, seed
+ou login real. Detalhes em [Correção Vercel/MySQL](correcao-vercel-mysql.md).
