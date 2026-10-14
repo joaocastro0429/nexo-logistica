@@ -1,4 +1,5 @@
 import { securityConfig } from './security';
+import { StartupError } from './startup';
 import { criarOAuth } from './oauth';
 import { criarImportacoes } from './importacoes';
 import { calcularPainel, type SimulacaoAnalitica } from './painel';
@@ -11,9 +12,13 @@ import type { Painel } from '../types';
 import { MySqlAuditoriaRepository, MySqlAutenticacaoRepository, MySqlGestaoRepository } from '../infrastructure/repositories/mysql.repositories';
 
 export async function openStore(url?: string, redisUrl?: string) {
-  securityConfig();
-  const db = await abrirBanco(url);
-  const redis = await abrirRedis(redisUrl).catch(async error => { await db.close(); throw error; });
+  try { securityConfig(); }
+  catch (error) { throw new StartupError('configuracao', error); }
+  const db = await abrirBanco(url).catch(error => { throw new StartupError('mysql', error); });
+  const redis = await abrirRedis(redisUrl).catch(async error => {
+    await db.close().catch(() => {});
+    throw new StartupError('redis', error);
+  });
   const authRepository = new MySqlAutenticacaoRepository(db.db);
   const gestaoRepository = new MySqlGestaoRepository(db.db);
   const auditoria = new MySqlAuditoriaRepository(db.db);
