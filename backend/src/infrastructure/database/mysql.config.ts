@@ -36,8 +36,8 @@ export function configuracaoMySql(url = process.env.DATABASE_URL, env: NodeJS.Pr
   if (required && (flag === 'false' || mode === 'DISABLED')) {
     throw new Error('TLS é obrigatório na Vercel ou quando solicitado pela configuração do MySQL.');
   }
-  const ssl: SslOptions | undefined = required
-    ? { ca, rejectUnauthorized: true, verifyIdentity: true, minVersion: 'TLSv1.2' }
+  const ssl = required
+    ? { ca, rejectUnauthorized: true, verifyIdentity: true, minVersion: 'TLSv1.2' } satisfies SslOptions
     : undefined;
   return { ...credentials, ssl };
 }
