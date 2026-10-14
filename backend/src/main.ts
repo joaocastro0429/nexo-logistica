@@ -5,6 +5,7 @@ import type { Request, Response, NextFunction } from 'express';
 import cookieParser from 'cookie-parser';
 import { getStore, closeStore } from './server/store';
 import { AppModule } from './app.module';
+import { startupDiagnostic } from './server/startup';
 
 async function bootstrap() {
   await getStore();
@@ -17,6 +18,7 @@ async function bootstrap() {
   await app.listen(Number(process.env.PORT || 3001), process.env.HOST || '0.0.0.0');
 }
 bootstrap().catch(async (error: unknown) => {
+  console.error(JSON.stringify(startupDiagnostic(error)));
   const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
   if (code === 'EADDRINUSE') {
     console.error(`A porta ${process.env.PORT || 3001} já está em uso. Encerre o backend duplicado ou escolha outra porta com PORT=...`);
