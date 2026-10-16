@@ -269,3 +269,16 @@ O build completo da worktree isolada passou, com avisos CSS preexistentes.
 Também foi consultada a skill `vercel:verification` para conferir as fronteiras
 do fluxo; a validação no navegador usa APIs simuladas e não comprova o
 provedor externo com sessão real.
+
+### Dados da transportadora e histórico — 16/10/2026
+
+O usuário relatou ausência do histórico e pediu que o nome da transportadora
+recuperasse informações. Após esclarecimento, confirmou o uso dos cadastros
+existentes. O Codex implementou busca por nome e exibição de contato/tarifas,
+e distinguiu estados vazios e falhas do histórico, com opção de recarga.
+Uma consulta MySQL somente de leitura encontrou zero simulações na configuração
+de produção disponível. Não foi identificada falha de persistência a partir
+desse resultado. Escopo e testes reais estão em [Frete e histórico](frete-e-historico.md).
+Foram seguidas as skills Vercel de deploy e verificação já consultadas nesta
+conversa, sem subagentes. Alterações preparadas na worktree isolada sobre o
+commit anterior, preservando as demais mudanças locais.

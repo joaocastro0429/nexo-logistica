@@ -97,6 +97,7 @@ const camposFrete: Campo[] = [
 function Frete() {
   const [clientes, setClientes] = useState<Registro[]>([]);
   const [transportadoras, setTransportadoras] = useState<Registro[]>([]);
+  const [buscaTransportadora, setBuscaTransportadora] = useState('');
   const [form, setForm] = useState<Record<string, string>>({});
   const [resultado, setResultado] = useState<Simulacao | null>(null);
   const [erro, setErro] = useState('');
@@ -107,6 +108,15 @@ function Frete() {
     Promise.all([api<Registro[]>('gestao/clientes'), api<Registro[]>('gestao/transportadoras')]).then(([c, t]) => { if (ativo) { setClientes(c); setTransportadoras(t); } }).catch(e => { if (ativo) setErro(e.message); }).finally(() => { if (ativo) setCarregando(false); });
     return () => { ativo = false; };
   }, []);
+  const normalizar = (nome: string) => nome.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const transportadoraSelecionada = transportadoras.find(t => t.id === form.transportadoraId);
+  const transportadorasFiltradas = transportadoras.filter(t => normalizar(t.nome).includes(normalizar(buscaTransportadora)));
+  function buscarTransportadora(nome: string) {
+    setBuscaTransportadora(nome);
+    const exatas = transportadoras.filter(t => normalizar(t.nome) === normalizar(nome));
+    setForm(atual => ({ ...atual, transportadoraId: exatas.length === 1 ? exatas[0].id : '' }));
+    setResultado(null);
+  }
   async function simular(e: FormEvent) {
     e.preventDefault(); setOcupado(true); setErro(''); setResultado(null);
     const dados = { ...form, ...Object.fromEntries(camposFrete.filter(c => c.tipo === 'number').map(c => [c.nome, Number(form[c.nome])])) };
@@ -114,20 +124,23 @@ function Frete() {
     catch (error) { setErro((error as Error).message); }
     finally { setOcupado(false); }
   }
-  return <section className="gestao">{erro && <p className="gestao-erro" role="alert">{erro}</p>}{carregando ? <p>Carregando...</p> : <><p>Informe a distância estimada do trajeto. O cálculo considera o maior entre peso real e cubado, as tarifas da transportadora e seguro de 0,5%.</p>{!transportadoras.length && <p>Cadastre uma transportadora antes de simular. Administradores e gestores podem realizar esse cadastro.</p>}<Localidades aplicar={(campo, cidade) => { setForm(atual => ({ ...atual, [campo]: cidade })); setResultado(null); }} /><form className="gestao-form" onSubmit={simular}><div className="gestao-campos"><label>Transportadora<select required value={form.transportadoraId || ''} onChange={e => setForm({ ...form, transportadoraId: e.target.value })}><option value="">Selecione</option>{transportadoras.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}</select></label><label>Cliente (opcional)<select value={form.clienteId || ''} onChange={e => setForm({ ...form, clienteId: e.target.value })}><option value="">Não informado</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></label>{camposFrete.map(c => <label key={c.nome}>{c.label}<input required type={c.tipo || 'text'} min={c.min} step={c.tipo === 'number' ? '0.01' : undefined} maxLength={150} value={form[c.nome] || ''} onChange={e => { setForm({ ...form, [c.nome]: e.target.value }); setResultado(null); }} /></label>)}</div><button className="button button-primary" disabled={ocupado || !transportadoras.length}>{ocupado ? 'Calculando...' : 'Simular e salvar no histórico'}</button></form></>}{resultado && <><p role="status">Simulação salva no histórico.</p><Resultado simulacao={resultado} /></>}</section>;
+  return <section className="gestao">{erro && <p className="gestao-erro" role="alert">{erro}</p>}{carregando ? <p>Carregando...</p> : <><p>Informe a distância estimada do trajeto. O cálculo considera o maior entre peso real e cubado, as tarifas da transportadora e seguro de 0,5%.</p>{!transportadoras.length && <p>Cadastre uma transportadora antes de simular. Administradores e gestores podem realizar esse cadastro.</p>}<Localidades aplicar={(campo, cidade) => { setForm(atual => ({ ...atual, [campo]: cidade })); setResultado(null); }} /><form className="gestao-form" onSubmit={simular}><div className="gestao-campos"><label>Buscar transportadora por nome<input type="search" value={buscaTransportadora} onChange={e => buscarTransportadora(e.target.value)} placeholder="Digite o nome cadastrado" /></label><label>Transportadora<select required value={form.transportadoraId || ''} onChange={e => { setForm(atual => ({ ...atual, transportadoraId: e.target.value })); setResultado(null); }}><option value="">Selecione</option>{transportadorasFiltradas.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}</select></label>{buscaTransportadora && !transportadorasFiltradas.length && <p role="status">Nenhuma transportadora cadastrada com esse nome. Cadastre-a em Transportadoras antes de simular.</p>}{transportadoraSelecionada && <article className="gestao-resultado" aria-label="Dados da transportadora" aria-live="polite"><h3>{transportadoraSelecionada.nome}</h3><p>E-mail: {transportadoraSelecionada.email} · Telefone: {transportadoraSelecionada.telefone || 'Não informado'}</p><dl><div><dt>Taxa base</dt><dd>{moeda(Number(transportadoraSelecionada.taxa_base))}</dd></div><div><dt>Preço por kg</dt><dd>{moeda(Number(transportadoraSelecionada.valor_kg))}</dd></div><div><dt>Preço por km</dt><dd>{moeda(Number(transportadoraSelecionada.valor_km))}</dd></div></dl><p>Tarifas do cadastro usadas pelo servidor no cálculo do frete.</p></article>}<label>Cliente (opcional)<select value={form.clienteId || ''} onChange={e => setForm({ ...form, clienteId: e.target.value })}><option value="">Não informado</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></label>{camposFrete.map(c => <label key={c.nome}>{c.label}<input required type={c.tipo || 'text'} min={c.min} step={c.tipo === 'number' ? '0.01' : undefined} maxLength={150} value={form[c.nome] || ''} onChange={e => { setForm({ ...form, [c.nome]: e.target.value }); setResultado(null); }} /></label>)}</div><button className="button button-primary" disabled={ocupado || !transportadoras.length}>{ocupado ? 'Calculando...' : 'Simular e salvar no histórico'}</button></form></>}{resultado && <><p role="status">Simulação salva no histórico.</p><Resultado simulacao={resultado} /></>}</section>;
 }
 function Historico() {
   const [dados, setDados] = useState<Simulacao[]>([]);
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState('');
+  const [atualizacao, setAtualizacao] = useState(0);
   useEffect(() => {
+    setCarregando(true);
+    setErro('');
     let ativo = true;
     api<Simulacao[]>('simulacoes').then(d => { if (ativo) setDados(d); }).catch(e => { if (ativo) setErro(e.message); }).finally(() => { if (ativo) setCarregando(false); });
     return () => { ativo = false; };
-  }, []);
+  }, [atualizacao]);
   const filtrados = dados.filter(s => `${s.origem} ${s.destino} ${s.transportadora.nome} ${s.cliente?.nome || ''} ${s.usuario}`.toLowerCase().includes(busca.toLowerCase()));
-  return <section className="gestao"><label>Buscar por origem, destino, transportadora, cliente ou responsável<input type="search" value={busca} onChange={e => setBusca(e.target.value)} /></label>{erro && <p className="gestao-erro" role="alert">{erro}</p>}{carregando ? <p>Carregando histórico...</p> : !filtrados.length ? <p>Nenhuma simulação encontrada.</p> : filtrados.map(s => <details key={s.id}><summary>{new Date(s.criada_em).toLocaleString('pt-BR')} · {s.origem} → {s.destino} · {moeda(s.total)}</summary><Resultado simulacao={s} /></details>)}</section>;
+  return <section className="gestao"><button type="button" disabled={carregando} onClick={() => setAtualizacao(atual => atual + 1)}>Atualizar histórico</button><label>Buscar por origem, destino, transportadora, cliente ou responsável<input type="search" value={busca} onChange={e => setBusca(e.target.value)} /></label>{erro && <p className="gestao-erro" role="alert">{erro}</p>}{carregando ? <p>Carregando histórico...</p> : erro ? <p>Não foi possível carregar o histórico. Tente atualizar novamente.</p> : !dados.length ? <p>Nenhuma simulação salva para esta empresa. Em Simulação de frete, preencha os dados e clique em “Simular e salvar no histórico”.</p> : !filtrados.length ? <p>Nenhuma simulação corresponde à busca.</p> : filtrados.map(s => <details key={s.id}><summary>{new Date(s.criada_em).toLocaleString('pt-BR')} · {s.origem} → {s.destino} · {moeda(s.total)}</summary><Resultado simulacao={s} /></details>)}</section>;
 }
 export default function Gestao({ secao, sessao }: { secao: string; sessao: Sessao }) {
   const tipos: Record<string, string> = { 'Usuários': 'usuarios', 'Clientes': 'clientes', 'Transportadoras': 'transportadoras' };
