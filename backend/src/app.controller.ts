@@ -1,9 +1,9 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { getStore } from './server/store';
 import { SESSION_SECONDS, REFRESH_SECONDS, type LoginResult, type Tokens } from './server/auth';
-import { availableProviders, ContaOAuthNaoVinculadaException, FalhaOAuthException, frontendOrigin, providerName } from './server/oauth';
-import { parseCodeDto, parseLoginDto, parseOAuthLinkDto, parsePasswordDto } from './application/dtos/auth.dto';
+import { frontendOrigin } from './server/oauth';
+import { parseCodeDto, parseLoginDto, parsePasswordDto } from './application/dtos/auth.dto';
 import { AuthPresenter } from './application/presenters/auth.presenter';
 import { ClientIp } from './http/decorators/client-ip.decorator';
 
@@ -113,41 +113,5 @@ export class AppController {
     return result;
   }
   @Get('oauth/providers')
-  providers() { return availableProviders(); }
-  @Post('oauth/:provider/vincular')
-  async link(@Param('provider') name: string, @Body() body: unknown, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
-    await this.guard(request, 'security');
-    const provider = providerName(name);
-    const data = parseOAuthLinkDto(body);
-    const store = await this.store;
-    const user = await store.reauthenticate(request.cookies?.[COOKIE], data.senha, data.codigo || '');
-    const result = await store.oauth.start(provider, { id: user.id, version: user.sessionVersion });
-    response.cookie(`nexo-oauth-${provider}`, result.browser, { ...cookieOptions(), maxAge: 300000 });
-    return { url: result.url };
-  }
-  @Get('oauth/:provider')
-  async oauth(@Param('provider') name: string, @Req() request: Request, @Res() response: Response) {
-    const provider = providerName(name);
-    await (await this.store).limit('ip:oauth', request.ip || 'unknown', 30, 900);
-    const result = await (await this.store).oauth.start(provider);
-    response.cookie(`nexo-oauth-${provider}`, result.browser, { ...cookieOptions(), maxAge: 300000 });
-    response.redirect(result.url);
-  }
-  @Get('oauth/:provider/callback')
-  async callback(@Param('provider') name: string, @Req() request: Request, @Res() response: Response) {
-    const provider = providerName(name);
-    response.clearCookie(`nexo-oauth-${provider}`, cookieOptions());
-    try {
-      await (await this.store).limit('ip:oauth-callback', request.ip || 'unknown', 60, 900);
-      const result = await (await this.store).oauth.callback(provider, request.query.state, request.query.code, request.cookies?.[`nexo-oauth-${provider}`], request.cookies?.[COOKIE]);
-      if ('linked' in result) { response.redirect(`${frontendOrigin()}/seguranca?vinculado=1`); return; }
-      await this.result(result, request, response);
-      response.redirect(`${frontendOrigin()}${'challenge' in result ? '/login?mfa=1' : '/plataforma'}`);
-    } catch (error) {
-      // Apenas códigos fixos; nunca encaminha mensagens ou tokens do provedor.
-      const motivo = error instanceof ContaOAuthNaoVinculadaException ? 'nao_vinculado' : error instanceof FalhaOAuthException ? error.motivo : 'erro';
-      console.warn('OAuth não concluído.', { provider, motivo });
-      response.redirect(`${frontendOrigin()}/login?oauth=${motivo}`);
-    }
-  }
+  providers() { return { google: false, github: false }; }
 }

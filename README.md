@@ -390,3 +390,12 @@ por empresa, com leitura individual por usuário. O painel atualiza ao abrir
 e a cada 20 segundos na aba visível. Não exige Kafka ou worker adicional.
 Consulte [Notificações e mensageria](docs/notificacoes-e-mensageria.md) para
 arquitetura, retenção, testes e limites de entrega.
+
+## Alteração de acesso — 16/10/2026
+
+A pedido do usuário, foram removidos os botões de Google/GitHub no login,
+a seção de vínculo em Segurança e as rotas HTTP de autorização, retorno e vínculo.
+O acesso utiliza e-mail e senha, com MFA quando configurado. O código interno
+e os registros OAuth existentes foram preservados, mas não habilitam acesso.
+O cadastro ganhou um bloco com botão “Criar minha conta” acima do formulário.
+Esta alteração foi implementada com auxílio do Codex.

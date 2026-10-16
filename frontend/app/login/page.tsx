@@ -22,32 +22,9 @@ export default function LoginPage() {
   const [erro, setErro] = useState('');
   const [mfa, setMfa] = useState(false);
   const [codigo, setCodigo] = useState('');
-  const [providers, setProviders] = useState({ google: false, github: false });
-  const [providersState, setProvidersState] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [vincularOAuth, setVincularOAuth] = useState(false);
-  const [oauthAviso, setOauthAviso] = useState('');
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setMfa(params.get('mfa') === '1');
-    const semVinculo = params.get('oauth') === 'nao_vinculado';
-    setVincularOAuth(semVinculo);
-    const mensagensOAuth: Record<string, string> = {
-      nao_vinculado: 'Esta conta do provedor ainda não está vinculada ao Nexo. Entre com seu e-mail e senha abaixo para vincular com segurança.',
-      sessao_oauth: 'A sessão de autorização expirou ou o navegador não enviou o cookie de confirmação. Abra o endereço oficial do Nexo e inicie novamente, sem reutilizar o link anterior.',
-      troca_codigo: 'O provedor recusou a troca do código de autorização. Inicie novamente; se persistir, precisamos revisar as credenciais e o callback do aplicativo.',
-      provedor: 'Não foi possível consultar sua conta no provedor. Confira se autorizou os acessos solicitados e tente novamente.',
-      identidade: 'Não foi possível validar a identidade devolvida pelo provedor. Inicie a autorização novamente.',
-      email_nao_verificado: 'Seu e-mail principal no GitHub precisa estar verificado. Confirme o e-mail nas configurações do GitHub e tente novamente.',
-      sessao_expirada: 'Sua sessão do Nexo expirou durante o vínculo. Entre novamente com senha e repita o vínculo em Segurança da conta.',
-    };
-    if (params.has('oauth')) setErro(mensagensOAuth[params.get('oauth') || ''] || 'Não foi possível concluir a autorização do provedor. Tente novamente.');
-    fetch('/api/oauth/providers').then(async response => {
-      if (!response.ok) throw new Error();
-      const data = await response.json();
-      if (typeof data.google !== 'boolean' || typeof data.github !== 'boolean') throw new Error();
-      setProviders(data);
-      setProvidersState('ready');
-    }).catch(() => setProvidersState('error'));
   }, []);
 
   const [enviando, setEnviando] = useState(false);
@@ -70,7 +47,7 @@ export default function LoginPage() {
       if (!response.ok) { setErro(dados.message || 'Não foi possível entrar.'); return; }
       if (dados.mfaRequired) { setMfa(true); setSenha(''); return; }
       localStorage.removeItem('nexo-sessao');
-      router.replace(vincularOAuth ? '/seguranca?vincular=1' : '/plataforma');
+      router.replace('/plataforma');
     } catch { setErro('Não foi possível conectar. Tente novamente.'); }
     finally { setEnviando(false); }
   }
@@ -91,23 +68,11 @@ export default function LoginPage() {
       </section>
 
       <section className="acesso-panel">
-        <div className="acesso-panel-head"><span className="overline">acesso à plataforma</span><h2>{mfa ? 'Verificação em duas etapas' : 'Entrar na plataforma'}</h2><p>{mfa ? 'Confirme sua identidade para concluir o acesso à sua conta.' : 'Entre com uma conta vinculada ou informe seu e-mail e senha.'}</p></div>
-        {!mfa && <section className="oauth-section" aria-label="Login com conta vinculada">
-          <div className="oauth-buttons">{(['google', 'github'] as const).map(provider => {
-            const label = `Entrar com ${provider === 'google' ? 'Google' : 'GitHub'}`;
-            return providersState === 'ready' && providers[provider]
-              ? <a key={provider} className="button oauth-button" href={`/api/oauth/${provider}`}>{label}</a>
-              : <button key={provider} className="button oauth-button oauth-button-unavailable" type="button" aria-describedby="oauth-status" onClick={() => setOauthAviso(providersState === 'loading' ? 'Aguarde a verificação dos provedores.' : `O login com ${provider === 'google' ? 'Google' : 'GitHub'} ainda não foi configurado no servidor.`)}>{label}</button>;
-          })}</div>
-          <p id="oauth-status" className="oauth-status" role="status">{providersState === 'loading'
-            ? 'Verificando opções de acesso…'
-            : providersState === 'error'
-              ? 'Não foi possível consultar as opções de acesso. Verifique a conexão e recarregue a página.'
-              : !providers.google || !providers.github
-                ? 'As opções desabilitadas ainda não foram configuradas. Entre com e-mail e senha.'
-                : 'Use uma conta já vinculada em Segurança da conta.'}</p>
-                  {oauthAviso && <p className="form-error" role="alert">{oauthAviso}</p>}
-          <div className="acesso-divider">ou entre com e-mail e senha</div>
+        <div className="acesso-panel-head"><span className="overline">acesso à plataforma</span><h2>{mfa ? 'Verificação em duas etapas' : 'Entrar na plataforma'}</h2><p>{mfa ? 'Confirme sua identidade para concluir o acesso à sua conta.' : 'Informe seu e-mail e senha para acessar sua conta.'}</p></div>
+        {!mfa && <section className="cadastro-destaque" aria-labelledby="cadastro-titulo">
+          <h3 id="cadastro-titulo">Ainda não tem uma conta?</h3>
+          <p>Cadastre sua empresa para começar a usar o Nexo.</p>
+          <a className="button cadastro-button" href="/cadastro">Criar minha conta <ArrowRight size={18} aria-hidden="true" /></a>
         </section>}
         <form onSubmit={entrar} className="acesso-form">
           {!mfa && <><label htmlFor="email">E-mail profissional</label>
@@ -123,7 +88,6 @@ export default function LoginPage() {
         </form>
         {!mfa && <p className="acesso-cadastro-info"><ShieldCheck size={16} aria-hidden="true" /> Autenticação em duas etapas (MFA): ative em <a href="/seguranca">Segurança da conta</a> após entrar. Se já estiver ativa, seu código será solicitado na próxima etapa.</p>}
         <p className="acesso-demo">Utilize o e-mail e a senha cadastrados na sua empresa. Selecione o perfil associado à sua conta.</p>
-        <a className="acesso-cadastro-link" href="/cadastro">Criar conta para minha empresa <ArrowRight size={15} /></a>
         <p className="acesso-demo">Para participar de uma empresa já cadastrada, peça seu acesso ao administrador.</p>
       </section>
     </main>

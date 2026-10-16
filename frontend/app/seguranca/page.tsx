@@ -5,7 +5,6 @@ import '../login/styles.css';
 
 export default function SegurancaPage() {
   const [status, setStatus] = useState<{ mfa: boolean; providers: string[] } | null>(null);
-  const [providers, setProviders] = useState({ google: false, github: false });
   const [senha, setSenha] = useState('');
   const [codigo, setCodigo] = useState('');
   const [setup, setSetup] = useState<{ secret: string; uri: string } | null>(null);
@@ -14,15 +13,11 @@ export default function SegurancaPage() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('vincular') === '1') setMensagem('Para habilitar o login pelo provedor, confirme sua senha abaixo e clique em Vincular ao lado de GitHub ou Google.');
-    if (params.get('vinculado') === '1') setMensagem('Conta vinculada com sucesso. Agora você pode entrar pelo provedor na tela de login.');
     apiFetch('/api/seguranca').then(async response => {
       if (response.status === 401) { window.location.assign('/login'); return; }
       if (!response.ok) throw new Error();
       setStatus(await response.json());
     }).catch(() => setMensagem('Não foi possível carregar sua conta.'));
-    fetch('/api/oauth/providers').then(r => r.json()).then(setProviders).catch(() => {});
   }, []);
   async function action(path: string, method = 'POST') {
     setBusy(true); setMensagem('');
@@ -39,11 +34,11 @@ export default function SegurancaPage() {
   }
   return <main className="seguranca-page"><section className="acesso-panel">
     <a href="/plataforma">← Plataforma</a><h1>Segurança da conta</h1>
-    <p>Proteja seu acesso com um aplicativo autenticador e vincule suas contas Google e GitHub.</p>
+    <p>Proteja seu acesso com um aplicativo autenticador.</p>
     {mensagem && <p role="status">{mensagem}</p>}
     {status && !done && <div className="acesso-form">
       <h2>Autenticação em duas etapas</h2><p>MFA {status.mfa ? 'ativado' : 'desativado'}.</p>
-      <label htmlFor="senha">Confirme sua senha para configurar MFA ou vincular um provedor</label>
+      <label htmlFor="senha">Confirme sua senha para configurar MFA</label>
       <div className="input-wrap"><input id="senha" type="password" autoComplete="current-password" maxLength={256} value={senha} onChange={e => setSenha(e.target.value)} /></div>
       {(status.mfa || setup) && <><label htmlFor="codigo">{setup ? 'Código de seis dígitos do autenticador' : 'Código do autenticador ou de recuperação'}</label><div className="input-wrap"><input id="codigo" autoComplete="one-time-code" maxLength={32} value={codigo} onChange={e => setCodigo(e.target.value)} /></div></>}
       {setup ? <>
@@ -53,8 +48,7 @@ export default function SegurancaPage() {
         <p>Confirme o código em até cinco minutos. Depois guarde os códigos de recuperação em local seguro.</p>
         <button className="button button-primary" disabled={busy || !codigo} onClick={() => action('seguranca/mfa/ativar')}>Ativar MFA</button>
       </> : <button className="button button-primary" disabled={busy || !senha || (status.mfa && !codigo)} onClick={() => action(status.mfa ? 'seguranca/mfa' : 'seguranca/mfa/configurar', status.mfa ? 'DELETE' : 'POST')}>{status.mfa ? 'Desativar MFA' : 'Configurar MFA'}</button>}
-      <h2>Contas vinculadas</h2><p>O primeiro vínculo exige sua senha e, se ativo, o segundo fator. Depois você poderá entrar pelo provedor; o MFA continuará obrigatório.</p>
-      {(['google', 'github'] as const).map(provider => <div key={provider}><strong>{provider === 'google' ? 'Google' : 'GitHub'}</strong> — {status.providers.includes(provider) ? 'Vinculado' : providers[provider] ? <button className="button" disabled={busy || !senha || (status.mfa && !codigo)} onClick={() => action(`oauth/${provider}/vincular`)}>Vincular</button> : 'Não configurado pelo servidor'}</div>)}
+
     </div>}
     {recovery.length > 0 && <><h2>Guarde seus códigos de recuperação</h2><p>Cada código funciona uma única vez. Eles não serão exibidos novamente.</p><ul>{recovery.map(code => <li key={code}><code>{code}</code></li>)}</ul></>}
     {done && <a className="button button-primary" href="/login">Entrar novamente</a>}

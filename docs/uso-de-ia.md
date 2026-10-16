@@ -374,3 +374,15 @@ classificação por etapa com mensagens fixas e logs sanitizados. Não confirmou
 uma causa específica do login real nem enfraqueceu o vínculo autenticado.
 Uma tentativa de testes/build falhou por import dinâmico sem extensão no teste;
 o import foi tornado estático, e os 36 testes e build passaram em seguida.
+
+## Alteração de acesso — 16/10/2026
+
+A pedido do usuário, foram removidos os botões de Google/GitHub no login,
+a seção de vínculo em Segurança e as rotas HTTP de autorização, retorno e vínculo.
+O acesso utiliza e-mail e senha, com MFA quando configurado. O código interno
+e os registros OAuth existentes foram preservados, mas não habilitam acesso.
+O cadastro ganhou um bloco com botão “Criar minha conta” acima do formulário.
+Esta alteração foi implementada com auxílio do Codex.
+
+Validação desta alteração: `npm test` (36 testes aprovados) e `npm run build`
+(backend e frontend concluídos), executados no worktree de publicação.

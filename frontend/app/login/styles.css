@@ -60,3 +60,10 @@
 .oauth-status { margin: 10px 0 16px; color: #718079; font-size: 12px; line-height: 1.5; }
 .acesso-divider { display: flex; align-items: center; gap: 12px; color: #718079; font-size: 12px; }
 .acesso-divider::before, .acesso-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+.cadastro-destaque { margin-bottom: 28px; padding: 20px; border: 1px solid #b6c998; border-radius: 12px; background: #eaf0df; }
+.cadastro-destaque h3 { margin: 0 0 8px; color: var(--ink); font-size: 19px; }
+.cadastro-destaque p { margin: 0 0 16px; color: #4c6258; font-size: 13px; line-height: 1.5; }
+.cadastro-button { display: flex; justify-content: center; gap: 10px; width: 100%; min-height: 48px; border: 1px solid var(--ink); border-radius: 8px; background: var(--ink); color: #fff; text-decoration: none; }
+.cadastro-button:hover { background: #244b43; }
+.cadastro-button:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
