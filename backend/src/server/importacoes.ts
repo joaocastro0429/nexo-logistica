@@ -40,6 +40,8 @@ export function lerCsv(buffer: Buffer): Record<string, string>[] {
 
 export function criarImportacoes(deps: {
   session: (token: string | undefined) => Promise<Sessao | null>;
+  agendar?: (tarefa: Promise<void>) => void;
+  notificar?: (tenantId: string, tipo: 'importacao_concluida' | 'importacao_falhou') => Promise<void>;
   salvar: (sessao: Sessao, tipo: string, body: unknown) => Promise<unknown>;
 }) {
   const trabalhos = new Map<string, { tenantId: string; criado: number; progresso: Progresso }>();
@@ -74,8 +76,10 @@ export function criarImportacoes(deps: {
         }
         p.estado = 'concluida';
       } catch { p.estado = 'falhou'; p.erros.push({ linha: p.processadas + 2, mensagem: 'Processamento interrompido. Verifique sua sessão e os cadastros já importados antes de reenviar.' }); }
+      await deps.notificar?.(sessao.tenantId, p.estado === 'concluida' ? 'importacao_concluida' : 'importacao_falhou');
     };
     const tarefa = executar();
+    deps.agendar?.(tarefa);
     pendentes.add(tarefa);
     void tarefa.finally(() => pendentes.delete(tarefa));
     return consultar(sessao, p.id);

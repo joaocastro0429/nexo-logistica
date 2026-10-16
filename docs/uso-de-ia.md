@@ -321,3 +321,29 @@ ainda tinham estilo básico: Atualizar histórico e Limpar busca. Usou os ícone
 existentes do Lucide e CSS, sem dependências novas. Build aprovado e capturas
 em desktop/390 px inspecionadas; busca e limpeza testadas com APIs simuladas.
 Demais alterações locais preservadas, publicação preparada na worktree isolada.
+
+### Mensageria e notificações no sino — 16/10/2026
+
+O usuário pediu mensageria no backend e, ao esclarecer o fluxo, informou que
+queria as notificações no sino do dashboard. O Codex começou avaliando filas
+para CSV, consultou a skill vercel:queues e documentação oficial Redis/BullMQ.
+Uma instalação exploratória de BullMQ na worktree foi desfeita ao receber o
+esclarecimento; BullMQ não integra a implementação final nem o lockfile.
+A solução final usa o cliente Redis existente e Streams para eventos de frete
+e resultado da importação, com cursor de leitura por usuário e UI no sino.
+
+Foram consultadas também as skills vercel:react-best-practices, de verificação
+e de deploy já lidas nesta conversa. Não foram usados subagentes. A dependência
+@vercel/functions foi acrescentada à base publicada para waitUntil; a primeira
+compilação com esse import falhou antes da instalação, e foi corrigida.
+Os resultados de testes e limites reais estão em
+[Notificações e mensageria](notificacoes-e-mensageria.md). As alterações foram
+preparadas em worktree isolada e aplicadas seletivamente à cópia de trabalho,
+preservando suas alterações anteriores. Não foram inventados testes de login
+ou de operações autenticadas reais de produção.
+O fluxo foi exercitado no navegador com API NestJS e Redis local reais,
+substituindo apenas autenticação e painel. O provedor Redis remoto também
+aceitou os comandos necessários em um namespace temporário, removido ao final.
+O roteiro e capturas fictícias foram preservados em docs/evidencias/notificacoes*.
+Passaram 33 testes na cópia de trabalho e 34 na base publicada, além do teste
+Redis isolado, typecheck e build. As diferenças de contagem vêm das branches.

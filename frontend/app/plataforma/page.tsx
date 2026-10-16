@@ -1,9 +1,11 @@
 'use client';
 
+import Notificacoes from './notificacoes';
+
 import { apiFetch } from '../../lib/api';
 
 import { useEffect, useRef, useState } from 'react';
-import { Activity, Bell, ChartNoAxesCombined, CircleDollarSign, LogOut, Menu, PackageCheck, Route, Settings, ShieldCheck, Truck, Users, X } from 'lucide-react';
+import { Activity, ChartNoAxesCombined, CircleDollarSign, LogOut, Menu, PackageCheck, Route, Settings, ShieldCheck, Truck, Users, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import './styles.css';
 import Gestao from './gestao';
@@ -84,7 +86,7 @@ export default function PlataformaPage() {
       </aside>
 
       <section className="plataforma-content">
-        <header className="plataforma-header"><button className="sidebar-toggle" onClick={() => setMenuAberto(true)} aria-label="Abrir menu"><Menu size={21} /></button><div><span className="overline">{sessao.empresa}</span><h1>Bom dia, <button className="nome-menu" onClick={() => setMenuUsuario(!menuUsuario)} aria-expanded={menuUsuario} title="Abrir menu do usuário">{sessao.nome}.</button></h1></div><div className="header-actions"><button aria-label="Notificações"><Bell size={19} /><b /></button><div className="usuario-menu" ref={menuRef}><button className="avatar-usuario avatar-trigger" onClick={() => setMenuUsuario(!menuUsuario)} aria-label="Menu do usuário" aria-expanded={menuUsuario}>{sessao.nome.slice(0, 2).toUpperCase()}</button>{menuUsuario && <div className="usuario-dropdown"><div className="usuario-info"><div className="avatar-usuario avatar-dropdown">{sessao.nome.slice(0, 2).toUpperCase()}</div><span><strong>{sessao.nome}</strong><small>{sessao.perfil} · {sessao.empresa}</small></span></div><button className="sair-button sair-dropdown" onClick={sair}><LogOut size={16} /> Sair da conta</button></div>}</div></div></header>
+        <header className="plataforma-header"><button className="sidebar-toggle" onClick={() => setMenuAberto(true)} aria-label="Abrir menu"><Menu size={21} /></button><div><span className="overline">{sessao.empresa}</span><h1>Bom dia, <button className="nome-menu" onClick={() => setMenuUsuario(!menuUsuario)} aria-expanded={menuUsuario} title="Abrir menu do usuário">{sessao.nome}.</button></h1></div><div className="header-actions"><Notificacoes aoAbrir={() => setMenuUsuario(false)} /><div className="usuario-menu" ref={menuRef}><button className="avatar-usuario avatar-trigger" onClick={() => setMenuUsuario(!menuUsuario)} aria-label="Menu do usuário" aria-expanded={menuUsuario}>{sessao.nome.slice(0, 2).toUpperCase()}</button>{menuUsuario && <div className="usuario-dropdown"><div className="usuario-info"><div className="avatar-usuario avatar-dropdown">{sessao.nome.slice(0, 2).toUpperCase()}</div><span><strong>{sessao.nome}</strong><small>{sessao.perfil} · {sessao.empresa}</small></span></div><button className="sair-button sair-dropdown" onClick={sair}><LogOut size={16} /> Sair da conta</button></div>}</div></div></header>
         {secao === 'Visão geral' ? <>
         <div className="plataforma-intro"><div><div className="eyebrow"><span className="eyebrow-line" /> centro de controle</div><h2>O que está acontecendo<br /><em>na sua operação.</em></h2></div><span className="periodo-button">Todo o histórico</span></div>
         <div className="resumo-grid">{resumo.map((item) => { const Icon = item.icone; return <article className={`resumo-card ${item.cor}`} key={item.titulo}><div className="resumo-card-top"><span>{item.titulo}</span><Icon size={20} /></div><strong>{item.valor}</strong><p>{item.variacao}</p></article>; })}</div>

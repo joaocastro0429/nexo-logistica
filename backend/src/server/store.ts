@@ -1,3 +1,6 @@
+import { waitUntil } from '@vercel/functions';
+import { criarNotificacoes } from './notificacoes';
+import { criarNotificacoesRedis } from '../infrastructure/repositories/notificacoes.repository';
 import { securityConfig } from './security';
 import { StartupError } from './startup';
 import { criarOAuth } from './oauth';
@@ -24,8 +27,9 @@ export async function openStore(url?: string, redisUrl?: string) {
   const auditoria = new MySqlAuditoriaRepository(db.db);
   const auth = criarAutenticacao(authRepository, redis, auditoria);
 
+  const notificacoes = criarNotificacoes(criarNotificacoesRedis(redis, process.env.AUTH_NAMESPACE || 'nexo'));
   const gestao = criarGestao(gestaoRepository, auditoria);
-  const importacoes = criarImportacoes({ session: auth.session, salvar: gestao.salvar });
+  const importacoes = criarImportacoes({ session: auth.session, salvar: gestao.salvar, notificar: notificacoes.publicar, agendar: process.env.VERCEL === '1' ? waitUntil : undefined });
 
   // Regra do multi-tenant: toda consulta usa a empresa da sessão validada.
   // Esta função é interna do servidor; nunca passar um tenant recebido do cliente.
@@ -34,7 +38,7 @@ export async function openStore(url?: string, redisUrl?: string) {
     return calcularPainel(dados.map(dado => JSON.parse(dado) as SimulacaoAnalitica));
   }
 
-  return { health: async () => { await db.pool.query('SELECT 1'); await redis.ping(); return { status: 'ok' }; }, ...auth, oauth: criarOAuth(authRepository, redis, auth), cadastrar: criarCadastro(db, auditoria), ...gestao, importacoes, buscarPainel, close: async () => { await importacoes.close(); await redis.quit(); await db.close(); } };
+  return { notificacoes, health: async () => { await db.pool.query('SELECT 1'); await redis.ping(); return { status: 'ok' }; }, ...auth, oauth: criarOAuth(authRepository, redis, auth), cadastrar: criarCadastro(db, auditoria), ...gestao, importacoes, buscarPainel, close: async () => { await importacoes.close(); await redis.quit(); await db.close(); } };
 }
 
 let store: ReturnType<typeof openStore> | undefined;

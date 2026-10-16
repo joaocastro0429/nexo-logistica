@@ -35,7 +35,11 @@ export class GestaoController {
 
   @Post('simulacoes')
   async simular(@Req() req: Request, @Body() body: unknown) {
-    return (await this.store).simular(await this.sessao(req, true), body);
+    const sessao = await this.sessao(req, true);
+    const store = await this.store;
+    const resultado = await store.simular(sessao, body);
+    await store.notificacoes.publicar(sessao.tenantId, 'frete_criado');
+    return resultado;
   }
 
   @Get('simulacoes')
@@ -50,7 +54,11 @@ export class GestaoController {
 
   @Delete('simulacoes/:id')
   async removerSimulacao(@Req() req: Request, @Param('id') id: string) {
-    return (await this.store).removerSimulacao(await this.sessao(req, true), id);
+    const sessao = await this.sessao(req, true);
+    const store = await this.store;
+    const resultado = await store.removerSimulacao(sessao, id);
+    await store.notificacoes.publicar(sessao.tenantId, 'frete_excluido');
+    return resultado;
   }
 
   private async sessao(request: Request, escrita = false) {

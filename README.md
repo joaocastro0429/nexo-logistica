@@ -381,3 +381,12 @@ chaves e provedores, callbacks, fluxos, endpoints, migração, recuperação,
 limites e validações. As credenciais reais dos provedores precisam ser fornecidas
 no ambiente para habilitar seus botões. A configuração inicial OAuth parte de
 uma conta local; não há associação automática por e-mail.
+
+## Notificações e mensageria
+
+O sino do dashboard exibe avisos de novos fretes, exclusões e conclusão/falha
+de importações. As mensagens são armazenadas em **Redis Streams**, separadas
+por empresa, com leitura individual por usuário. O painel atualiza ao abrir
+e a cada 20 segundos na aba visível. Não exige Kafka ou worker adicional.
+Consulte [Notificações e mensageria](docs/notificacoes-e-mensageria.md) para
+arquitetura, retenção, testes e limites de entrega.
