@@ -75,3 +75,14 @@ a asserção do painel anterior, os dois testes de frete foram executados novame
 e passaram. Playwright/Chrome com APIs simuladas verificou cancelamento,
 falha sem exclusão, confirmação, painel recarregado e ausência de botão para
 Operador. Não foi excluída nenhuma simulação real de produção nos testes.
+
+## Aparência do botão de exclusão
+
+Em 16/10/2026, o botão Excluir simulação recebeu ícone de lixeira, borda e
+fundo vermelho suave, cantos arredondados e estados de hover/foco/desabilitado.
+Tem altura mínima de 44 px e largura total em telas até 480 px. A confirmação
+e as permissões permanecem as mesmas. O build completo passou. O botão foi
+inspecionado em capturas desktop e 390 px; o fluxo com APIs simuladas passou.
+A primeira captura móvel pegou a transição do menu lateral após redimensionar;
+o roteiro foi ajustado para aguardar a transição e restaurar a largura desktop
+antes de continuar a navegação. Não houve exclusão real em produção.

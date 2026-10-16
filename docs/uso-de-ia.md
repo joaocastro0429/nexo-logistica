@@ -305,3 +305,11 @@ Administradores e Gestores podem excluir apenas simulações da própria empresa
 A Visão geral já consulta novamente o histórico ao ser aberta. Não foram usados
 subagentes, nem alteradas dependências, schema ou dados de produção. Validação
 real e limitações estão em [Frete e histórico](frete-e-historico.md).
+
+### Aparência do botão Excluir simulação — 16/10/2026
+
+A pedido do usuário, o Codex estilizou o botão com ícone existente do Lucide,
+cores de exclusão, cantos arredondados e adaptação móvel. Não foram alterados
+backend ou dependências. Build e verificação visual/funcional com APIs simuladas
+passaram, após ajustar no roteiro a espera pela transição do menu na mudança
+de largura. Mantida a worktree isolada e as demais alterações locais.

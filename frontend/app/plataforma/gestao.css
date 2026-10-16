@@ -23,3 +23,21 @@
 .gestao details { border-bottom: 1px solid #e3e9e1; padding: 18px 0; }
 .gestao summary { cursor: pointer; line-height: 1.8; }
 @media (max-width: 700px) { .gestao { padding: 14px; } .gestao-campos { grid-template-columns: 1fr; } .gestao-resultado dl { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.historico-acoes { display: flex; justify-content: flex-end; padding-top: 4px; }
+.gestao .historico-excluir {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  min-height: 44px; padding: 11px 17px; border: 1px solid #efc4c0;
+  border-radius: 10px; background: #fff3f1; color: #a3322a;
+  font: inherit; font-weight: 600; line-height: 1.4; cursor: pointer;
+  box-shadow: 0 1px 2px #56251e0a;
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.gestao .historico-excluir:not(:disabled):hover {
+  background: #fce4e0; border-color: #d79c95; color: #84251f;
+  box-shadow: 0 3px 8px #56251e14;
+}
+.gestao .historico-excluir:focus-visible { outline: 3px solid #a3322a; outline-offset: 3px; }
+.gestao .historico-excluir:disabled { opacity: .55; cursor: wait; box-shadow: none; }
+@media (max-width: 480px) { .gestao .historico-excluir { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .gestao .historico-excluir { transition: none; } }
