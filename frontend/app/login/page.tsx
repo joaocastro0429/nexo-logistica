@@ -24,11 +24,16 @@ export default function LoginPage() {
   const [codigo, setCodigo] = useState('');
   const [providers, setProviders] = useState({ google: false, github: false });
   const [providersState, setProvidersState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [vincularOAuth, setVincularOAuth] = useState(false);
   const [oauthAviso, setOauthAviso] = useState('');
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setMfa(params.get('mfa') === '1');
-    if (params.has('oauth')) setErro('Não foi possível entrar pelo provedor. Vincule sua conta em Segurança após entrar com senha.');
+    const semVinculo = params.get('oauth') === 'nao_vinculado';
+    setVincularOAuth(semVinculo);
+    if (params.has('oauth')) setErro(semVinculo
+      ? 'Esta conta do provedor ainda não está vinculada ao Nexo. Entre com seu e-mail e senha abaixo para vincular com segurança.'
+      : 'Não foi possível concluir a autorização do provedor. Tente novamente; se persistir, verifique a configuração OAuth.');
     fetch('/api/oauth/providers').then(async response => {
       if (!response.ok) throw new Error();
       const data = await response.json();
@@ -58,7 +63,7 @@ export default function LoginPage() {
       if (!response.ok) { setErro(dados.message || 'Não foi possível entrar.'); return; }
       if (dados.mfaRequired) { setMfa(true); setSenha(''); return; }
       localStorage.removeItem('nexo-sessao');
-      router.replace('/plataforma');
+      router.replace(vincularOAuth ? '/seguranca?vincular=1' : '/plataforma');
     } catch { setErro('Não foi possível conectar. Tente novamente.'); }
     finally { setEnviando(false); }
   }

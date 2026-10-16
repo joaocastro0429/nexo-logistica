@@ -48,3 +48,23 @@ test('HTTP: cookies HttpOnly, CSRF, refresh, MFA sem acesso prematuro e limite d
     assert.equal((await req('sessao', 'POST', { email: 'ataque@example.com', senha: 'errada' })).status, 429);
   } finally { await app.close(); store.getStore = original; }
 });
+
+import { ContaOAuthNaoVinculadaException } from '../src/server/oauth';
+
+test('OAuth: retorno sem vínculo usa código específico e outras falhas não expõem detalhes', async () => {
+  const modulo = require('../src/server/store'); const original = modulo.getStore;
+  let erro: Error = new ContaOAuthNaoVinculadaException();
+  modulo.getStore = async () => ({ limit: async () => {}, oauth: { callback: async () => { throw erro; } } });
+  class TestModule {} Module({ controllers: [AppController] })(TestModule);
+  const app = await NestFactory.create(TestModule, { logger: false });
+  try {
+    app.use(cookieParser()); app.setGlobalPrefix('api'); await app.listen(0, '127.0.0.1');
+    const base = await app.getUrl();
+    let res = await fetch(`${base}/api/oauth/github/callback`, { redirect: 'manual' });
+    assert.equal(res.status, 302); assert.equal(new URL(res.headers.get('location')!).searchParams.get('oauth'), 'nao_vinculado');
+    erro = new Error('segredo-que-nao-pode-ser-exposto');
+    res = await fetch(`${base}/api/oauth/github/callback`, { redirect: 'manual' });
+    assert.equal(new URL(res.headers.get('location')!).searchParams.get('oauth'), 'erro');
+    assert.ok(!res.headers.get('location')!.includes(erro.message));
+  } finally { await app.close(); modulo.getStore = original; }
+});

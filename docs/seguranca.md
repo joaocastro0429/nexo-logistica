@@ -298,3 +298,21 @@ da aplicação não foram reconstruídos. Não houve login real no Google/GitHub
 os testes exercitam os protocolos com respostas simuladas e assinaturas de
 chaves de teste. Credenciais reais, consentimento e callbacks registrados devem
 ser configurados para a validação ponta a ponta com esses provedores.
+
+### Primeiro vínculo OAuth e mensagens de retorno
+
+Em 16/10/2026, o retorno de uma identidade válida do provedor, mas ainda não
+vinculada ao Nexo, passou a usar o código fixo `oauth=nao_vinculado`. A tela
+explica que é necessário entrar com e-mail/senha; após esse login (incluindo
+MFA, quando habilitado), abre `/seguranca?vincular=1`. O usuário confirma sua
+senha e autoriza o vínculo. O retorno bem-sucedido exibe confirmação em Segurança.
+Outras falhas usam `oauth=erro`, sem atribuí-las automaticamente à falta de
+vínculo e sem revelar tokens, códigos de autorização ou mensagens externas.
+Não existe associação automática por e-mail, cadastro OAuth automático nem
+vínculo sem autenticação prévia. A seleção de empresa continua sendo do servidor.
+
+Validação: 35 testes do backend e build completo aprovados. O teste HTTP novo
+confere os códigos de redirecionamento e a ocultação de detalhes de exceções.
+O roteiro de navegador com APIs simuladas verificou senha, MFA e encaminhamento
+para Segurança; está em [oauth-vinculo-browser.cjs](evidencias/oauth-vinculo-browser.cjs).
+O login real do usuário e a autorização no GitHub não foram executados pelo agente.

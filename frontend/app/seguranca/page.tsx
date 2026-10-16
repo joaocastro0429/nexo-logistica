@@ -14,6 +14,9 @@ export default function SegurancaPage() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('vincular') === '1') setMensagem('Para habilitar o login pelo provedor, confirme sua senha abaixo e clique em Vincular ao lado de GitHub ou Google.');
+    if (params.get('vinculado') === '1') setMensagem('Conta vinculada com sucesso. Agora você pode entrar pelo provedor na tela de login.');
     apiFetch('/api/seguranca').then(async response => {
       if (response.status === 401) { window.location.assign('/login'); return; }
       if (!response.ok) throw new Error();

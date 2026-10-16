@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Post, Req, Res, Unautho
 import type { Request, Response } from 'express';
 import { getStore } from './server/store';
 import { SESSION_SECONDS, REFRESH_SECONDS, type LoginResult, type Tokens } from './server/auth';
-import { availableProviders, frontendOrigin, providerName } from './server/oauth';
+import { availableProviders, ContaOAuthNaoVinculadaException, frontendOrigin, providerName } from './server/oauth';
 import { parseCodeDto, parseLoginDto, parseOAuthLinkDto, parsePasswordDto } from './application/dtos/auth.dto';
 import { AuthPresenter } from './application/presenters/auth.presenter';
 import { ClientIp } from './http/decorators/client-ip.decorator';
@@ -143,9 +143,10 @@ export class AppController {
       if ('linked' in result) { response.redirect(`${frontendOrigin()}/seguranca?vinculado=1`); return; }
       await this.result(result, request, response);
       response.redirect(`${frontendOrigin()}${'challenge' in result ? '/login?mfa=1' : '/plataforma'}`);
-    } catch {
-      // Não encaminha mensagens/tokens do provedor para URL ou logs.
-      response.redirect(`${frontendOrigin()}/login?oauth=erro`);
+    } catch (error) {
+      // Apenas códigos fixos; nunca encaminha mensagens ou tokens do provedor.
+      const motivo = error instanceof ContaOAuthNaoVinculadaException ? 'nao_vinculado' : 'erro';
+      response.redirect(`${frontendOrigin()}/login?oauth=${motivo}`);
     }
   }
 }

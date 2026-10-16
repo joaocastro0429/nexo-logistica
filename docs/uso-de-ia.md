@@ -347,3 +347,19 @@ aceitou os comandos necessários em um namespace temporário, removido ao final.
 O roteiro e capturas fictícias foram preservados em docs/evidencias/notificacoes*.
 Passaram 33 testes na cópia de trabalho e 34 na base publicada, além do teste
 Redis isolado, typecheck e build. As diferenças de contagem vêm das branches.
+
+### Encaminhamento para primeiro vínculo GitHub — 16/10/2026
+
+O usuário repetiu a mensagem genérica e esclareceu que estava clicando em Entrar
+com GitHub na tela de login. Já havia sido observado ausência de vínculos no
+banco. Uma requisição ao endpoint de token GitHub com código deliberadamente
+inválido retornou bad_verification_code; nenhum token de usuário foi obtido,
+e nenhuma credencial foi exibida. Isso não comprova consentimento/login real.
+
+O Codex distinguiu o caso de conta sem vínculo no backend e direcionou o login
+com senha/MFA à Segurança nesse caso. Adicionou orientação para vincular e
+confirmação após retorno bem-sucedido. Não foi removida a exigência de primeiro
+vínculo autenticado nem associadas contas por e-mail. Passaram os 35 testes,
+build e roteiro de navegador com APIs simuladas, preservado nas evidências.
+As skills de verificação, React e deploy já consultadas orientaram esta etapa;
+sem subagentes, mudanças de schema ou alterações de credenciais.

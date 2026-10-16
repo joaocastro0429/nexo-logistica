@@ -5,6 +5,10 @@ import type { criarAutenticacao } from './auth';
 import { digest, randomToken, redisKey } from './security';
 import { createHash } from 'node:crypto';
 
+export class ContaOAuthNaoVinculadaException extends UnauthorizedException {
+  constructor() { super('Entre com senha e vincule o provedor em Segurança.'); }
+}
+
 export type Provider = 'google' | 'github';
 export const frontendOrigin = () => process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
 export function providerName(value: string): Provider {
@@ -84,7 +88,7 @@ export function criarOAuth(repository: AutenticacaoRepository, redis: Redis, aut
       return { linked: true as const };
     }
     const user = await repository.buscarOAuth(provider, subject);
-    if (!user) throw new UnauthorizedException('Entre com senha e vincule o provedor em Segurança.');
+    if (!user) throw new ContaOAuthNaoVinculadaException();
     return auth.finish(user);
   }
   return { start, callback };
