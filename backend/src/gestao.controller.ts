@@ -48,6 +48,11 @@ export class GestaoController {
     return (await this.store).historico(await this.sessao(req), id);
   }
 
+  @Delete('simulacoes/:id')
+  async removerSimulacao(@Req() req: Request, @Param('id') id: string) {
+    return (await this.store).removerSimulacao(await this.sessao(req, true), id);
+  }
+
   private async sessao(request: Request, escrita = false) {
     if (escrita && request.headers.origin !== (process.env.FRONTEND_ORIGIN || 'http://localhost:3000')) throw new ForbiddenException('Origem não permitida.');
     const sessao = await (await this.store).session(request.cookies?.['nexo-sessao']);

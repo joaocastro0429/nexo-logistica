@@ -154,6 +154,12 @@ export class MySqlGestaoRepository implements GestaoRepository {
     return row?.dados || null;
   }
 
+  async removerSimulacao(tenantId: string, id: string) {
+    const [result] = await this.database.delete(simulacoes)
+      .where(and(eq(simulacoes.id, id), eq(simulacoes.tenantId, tenantId)));
+    return result.affectedRows > 0;
+  }
+
   async listarSimulacoes(tenantId: string) {
     const rows = await this.database.select({ dados: simulacoes.dados }).from(simulacoes)
       .where(eq(simulacoes.tenantId, tenantId)).orderBy(desc(simulacoes.criadaEm), simulacoes.id);

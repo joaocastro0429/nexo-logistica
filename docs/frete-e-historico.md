@@ -51,3 +51,27 @@ termos em outra ordem, data, código e recuperação da lista por Limpar busca.
 O primeiro roteiro tinha snapshot fictício incompleto e foi corrigido para
 incluir os valores exigidos por Resultado antes da execução aprovada.
 Não foi exercitada a sessão autenticada real do usuário.
+
+## Excluir simulação e atualizar o dashboard
+
+Administradores e Gestores podem abrir um resultado no Histórico, clicar em
+**Excluir simulação** e confirmar. A exclusão é permanente. Cancelar mantém o
+registro; falhas exibem mensagem e não removem o item localmente. Operadores
+continuam com permissão de consulta e simulação, sem permissão para excluir.
+
+`DELETE /api/simulacoes/:id` exige sessão, origem autorizada e perfil permitido.
+O repositório exclui usando simultaneamente o ID da simulação e a empresa da
+sessão. IDs inexistentes ou de outra empresa retornam 404. Não há mudança de
+schema. A exclusão funciona mesmo quando a transportadora já foi removida.
+
+Ao retornar à Visão geral, os indicadores são consultados novamente e calculados
+sobre o histórico restante. Excluir uma transportadora continua preservando
+simulações; a remoção de um cadastro não apaga automaticamente seu histórico.
+
+Validação: `npm test` passou (31 testes), `npm run typecheck` e `npm run build`
+passaram. O teste novo cobre Operador bloqueado, empresa isolada, ID inválido,
+404, exclusão por Administrador/Gestor e painel vazio após excluir. Após reforçar
+a asserção do painel anterior, os dois testes de frete foram executados novamente
+e passaram. Playwright/Chrome com APIs simuladas verificou cancelamento,
+falha sem exclusão, confirmação, painel recarregado e ausência de botão para
+Operador. Não foi excluída nenhuma simulação real de produção nos testes.

@@ -295,3 +295,13 @@ Mantida a worktree isolada; sem subagentes e sem alterações de dados reais.
 Tipos, build completo e roteiro de navegador com APIs simuladas passaram;
 a primeira fixture do roteiro foi corrigida por estar incompleta. Os testes
 não comprovam reprodução da busca exata do usuário em sua sessão real.
+
+### Exclusão de simulações — 16/10/2026
+
+O usuário pediu implementar a remoção do frete do histórico e dos indicadores.
+O Codex acrescentou operação no contrato/repositório, autorização no serviço,
+rota autenticada com verificação de origem e confirmação na interface.
+Administradores e Gestores podem excluir apenas simulações da própria empresa.
+A Visão geral já consulta novamente o histórico ao ser aberta. Não foram usados
+subagentes, nem alteradas dependências, schema ou dados de produção. Validação
+real e limitações estão em [Frete e histórico](frete-e-historico.md).

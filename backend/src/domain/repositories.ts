@@ -51,5 +51,6 @@ export interface GestaoRepository {
   remover(tenantId: string, tipo: Recurso, id: string): Promise<void>;
   salvarSimulacao(tenantId: string, id: string, criadaEm: string, dados: string): Promise<void>;
   buscarSimulacao(tenantId: string, id: string): Promise<string | null>;
+  removerSimulacao(tenantId: string, id: string): Promise<boolean>;
   listarSimulacoes(tenantId: string): Promise<string[]>;
 }

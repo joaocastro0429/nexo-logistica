@@ -139,5 +139,12 @@ export function criarGestao(repository: GestaoRepository, auditoria?: AuditoriaR
     return (await repository.listarSimulacoes(sessao.tenantId)).map(dados => JSON.parse(dados));
   }
 
-  return { listar, consultar, salvar, remover, simular, historico };
+  async function removerSimulacao(sessao: Sessao, id: string) {
+    if (sessao.perfil !== 'Administrador' && sessao.perfil !== 'Gestor') throw new ForbiddenException('Somente administradores e gestores podem excluir simulações.');
+    if (!id || id.length > 64) throw new BadRequestException('Identificador de simulação inválido.');
+    if (!await repository.removerSimulacao(sessao.tenantId, id)) throw new NotFoundException('Simulação não encontrada.');
+    return { ok: true };
+  }
+
+  return { listar, consultar, salvar, remover, simular, historico, removerSimulacao };
 }
