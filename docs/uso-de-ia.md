@@ -282,3 +282,16 @@ desse resultado. Escopo e testes reais estão em [Frete e histórico](frete-e-hi
 Foram seguidas as skills Vercel de deploy e verificação já consultadas nesta
 conversa, sem subagentes. Alterações preparadas na worktree isolada sobre o
 commit anterior, preservando as demais mudanças locais.
+
+### Busca no Histórico — 16/10/2026
+
+O usuário esclareceu que a busca pelo nome da transportadora no Histórico
+não exibia o esperado. Uma consulta de leitura confirmou uma simulação com
+nome de transportadora correspondente ao cadastro. Sem o texto exato digitado
+ou sessão do usuário, não se atribuiu uma causa única ao relato. O Codex
+ajustou normalização e termos do filtro, acrescentou nome da transportadora
+no resumo e opção de limpar a busca. Detalhes em [Frete e histórico](frete-e-historico.md).
+Mantida a worktree isolada; sem subagentes e sem alterações de dados reais.
+Tipos, build completo e roteiro de navegador com APIs simuladas passaram;
+a primeira fixture do roteiro foi corrigida por estar incompleta. Os testes
+não comprovam reprodução da busca exata do usuário em sua sessão real.
