@@ -86,3 +86,9 @@ inspecionado em capturas desktop e 390 px; o fluxo com APIs simuladas passou.
 A primeira captura móvel pegou a transição do menu lateral após redimensionar;
 o roteiro foi ajustado para aguardar a transição e restaurar a largura desktop
 antes de continuar a navegação. Não houve exclusão real em produção.
+
+Em novo ajuste visual de 16/10/2026, Atualizar histórico recebeu fundo verde
+escuro e ícone de atualização; Limpar busca recebeu fundo verde claro e ícone X.
+Ambos possuem cantos arredondados, área mínima de 44 px, foco visível e largura
+total no celular. O build passou e as capturas desktop/390 px foram conferidas.
+A busca e Limpar busca passaram no navegador com APIs simuladas.

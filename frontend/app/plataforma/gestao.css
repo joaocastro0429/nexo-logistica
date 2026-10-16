@@ -41,3 +41,19 @@
 .gestao .historico-excluir:disabled { opacity: .55; cursor: wait; box-shadow: none; }
 @media (max-width: 480px) { .gestao .historico-excluir { width: 100%; } }
 @media (prefers-reduced-motion: reduce) { .gestao .historico-excluir { transition: none; } }
+
+.historico-toolbar { display: flex; justify-content: flex-end; margin-bottom: 22px; }
+.gestao .historico-botao {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  min-height: 44px; padding: 11px 19px; border: 1px solid transparent;
+  border-radius: 12px; font: inherit; font-weight: 600; line-height: 1.4;
+  cursor: pointer; transition: background-color .15s ease, box-shadow .15s ease;
+}
+.gestao .historico-atualizar { background: #153e35; border-color: #153e35; color: #fff; box-shadow: 0 3px 8px #153e3520; }
+.gestao .historico-atualizar:not(:disabled):hover { background: #245849; border-color: #245849; color: #fff; box-shadow: 0 4px 12px #153e3530; }
+.gestao .historico-limpar { background: #f0f5ef; border-color: #d4dfcf; color: #254d3d; }
+.gestao .historico-limpar:not(:disabled):hover { background: #e1eddd; color: #153e35; }
+.gestao .historico-botao:focus-visible { outline: 3px solid #638d75; outline-offset: 3px; }
+.gestao .historico-botao:disabled { opacity: .55; cursor: wait; box-shadow: none; }
+@media (max-width: 480px) { .historico-toolbar, .gestao .historico-botao { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .gestao .historico-botao { transition: none; } }

@@ -313,3 +313,11 @@ cores de exclusão, cantos arredondados e adaptação móvel. Não foram alterad
 backend ou dependências. Build e verificação visual/funcional com APIs simuladas
 passaram, após ajustar no roteiro a espera pela transição do menu na mudança
 de largura. Mantida a worktree isolada e as demais alterações locais.
+
+### Botões de atualização e limpeza do Histórico — 16/10/2026
+
+Após novo pedido de aparência no Histórico, o Codex padronizou os botões que
+ainda tinham estilo básico: Atualizar histórico e Limpar busca. Usou os ícones
+existentes do Lucide e CSS, sem dependências novas. Build aprovado e capturas
+em desktop/390 px inspecionadas; busca e limpeza testadas com APIs simuladas.
+Demais alterações locais preservadas, publicação preparada na worktree isolada.
