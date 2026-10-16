@@ -255,3 +255,17 @@ compartilhada com migrações, execução separada de migrações na Vercel e
 diagnóstico seguro de inicialização. npm test aprovou 30 testes do backend.
 A consulta de logs remotos pelo plugin retornou 403. Não houve migração, seed
 ou login real. Detalhes em [Correção Vercel/MySQL](correcao-vercel-mysql.md).
+
+### Correção do CEP — 16/10/2026
+
+A pedido do usuário, o Codex corrigiu as expressões regulares do componente
+de localidades que impediam a consulta automática. O comportamento e as
+verificações desta etapa estão em [Correção do CEP](correcao-cep.md).
+Foi utilizada a skill `vercel:deployments-cicd`, sem subagentes. A integração
+Vercel retornou 403; a inspeção pelo CLI autenticado funcionou. Uma worktree
+isolada de `origin/main` foi preparada para versionar e publicar somente o
+componente e esta documentação, preservando as alterações locais anteriores.
+O build completo da worktree isolada passou, com avisos CSS preexistentes.
+Também foi consultada a skill `vercel:verification` para conferir as fronteiras
+do fluxo; a validação no navegador usa APIs simuladas e não comprova o
+provedor externo com sessão real.
