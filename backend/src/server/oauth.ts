@@ -5,6 +5,11 @@ import type { criarAutenticacao } from './auth';
 import { digest, randomToken, redisKey } from './security';
 import { createHash } from 'node:crypto';
 
+export type MotivoFalhaOAuth = 'sessao_oauth' | 'troca_codigo' | 'provedor' | 'identidade' | 'email_nao_verificado' | 'sessao_expirada';
+export class FalhaOAuthException extends UnauthorizedException {
+  constructor(readonly motivo: MotivoFalhaOAuth) { super('Não foi possível concluir a autorização.'); }
+}
+
 export class ContaOAuthNaoVinculadaException extends UnauthorizedException {
   constructor() { super('Entre com senha e vincule o provedor em Segurança.'); }
 }
@@ -25,10 +30,12 @@ export const availableProviders = () => ({
   google: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
   github: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
 });
-async function jsonRequest(url: string, init?: RequestInit) {
-  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(10000), redirect: 'error' });
-  if (!response.ok) throw new UnauthorizedException('Falha ao autenticar no provedor.');
-  return response.json();
+async function jsonRequest(url: string, init?: RequestInit, motivo: MotivoFalhaOAuth = 'provedor') {
+  try {
+    const response = await fetch(url, { ...init, signal: AbortSignal.timeout(10000), redirect: 'error' });
+    if (!response.ok) throw new FalhaOAuthException(motivo);
+    return await response.json();
+  } catch { throw new FalhaOAuthException(motivo); }
 }
 export function criarOAuth(repository: AutenticacaoRepository, redis: Redis, auth: ReturnType<typeof criarAutenticacao>) {
   async function start(provider: Provider, link?: { id: string; version: number }) {
@@ -49,36 +56,38 @@ export function criarOAuth(repository: AutenticacaoRepository, redis: Redis, aut
     return { url: url.toString(), browser };
   }
   async function callback(provider: Provider, state: unknown, code: unknown, browser: string | undefined, sessionToken?: string) {
-    if (typeof state !== 'string' || !/^[a-f0-9]{64}$/.test(state) || typeof code !== 'string' || !code || code.length > 4096 || !browser) throw new UnauthorizedException();
+    if (typeof state !== 'string' || !/^[a-f0-9]{64}$/.test(state) || typeof code !== 'string' || !code || code.length > 4096 || !browser) throw new FalhaOAuthException('sessao_oauth');
     const raw = await redis.getDel(redisKey(`oauth:${digest(state)}`));
-    if (!raw) throw new UnauthorizedException();
-    const pending = JSON.parse(raw);
-    if (pending.provider !== provider || pending.browser !== digest(browser)) throw new UnauthorizedException();
+    if (!raw) throw new FalhaOAuthException('sessao_oauth');
+    let pending: any;
+    try { pending = JSON.parse(raw); } catch { throw new FalhaOAuthException('sessao_oauth'); }
+    if (pending.provider !== provider || pending.browser !== digest(browser)) throw new FalhaOAuthException('sessao_oauth');
     const { clientId, clientSecret, callback: redirectUri } = settings(provider);
     const tokens = await jsonRequest(provider === 'google' ? 'https://oauth2.googleapis.com/token' : 'https://github.com/login/oauth/access_token', {
       method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
       body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, code, redirect_uri: redirectUri, grant_type: 'authorization_code', code_verifier: pending.verifier }),
-    });
+    }, 'troca_codigo');
     let subject: string;
     if (provider === 'google') {
-      if (typeof tokens.id_token !== 'string') throw new UnauthorizedException();
+      if (typeof tokens.id_token !== 'string') throw new FalhaOAuthException('troca_codigo');
       const { jwtVerify, createRemoteJWKSet } = await import('jose');
       const keys = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'), { timeoutDuration: 10000 });
-      const { payload } = await jwtVerify(tokens.id_token, keys, { algorithms: ['RS256'], issuer: ['https://accounts.google.com', 'accounts.google.com'], audience: clientId, requiredClaims: ['sub', 'exp', 'iat', 'nonce'], maxTokenAge: '10m' });
-      if (payload.nonce !== pending.nonce || payload.email_verified !== true || typeof payload.sub !== 'string' || !payload.sub) throw new UnauthorizedException();
+      const { payload } = await jwtVerify(tokens.id_token, keys, { algorithms: ['RS256'], issuer: ['https://accounts.google.com', 'accounts.google.com'], audience: clientId, requiredClaims: ['sub', 'exp', 'iat', 'nonce'], maxTokenAge: '10m' }).catch(() => { throw new FalhaOAuthException('identidade'); });
+      if (payload.nonce !== pending.nonce || payload.email_verified !== true || typeof payload.sub !== 'string' || !payload.sub) throw new FalhaOAuthException('identidade');
       subject = payload.sub;
     } else {
-      if (typeof tokens.access_token !== 'string') throw new UnauthorizedException();
+      if (typeof tokens.access_token !== 'string') throw new FalhaOAuthException('troca_codigo');
       const headers = { Authorization: `Bearer ${tokens.access_token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'Nexo', 'X-GitHub-Api-Version': '2022-11-28' };
       const user = await jsonRequest('https://api.github.com/user', { headers });
       const emails = await jsonRequest('https://api.github.com/user/emails', { headers });
-      if (!Number.isSafeInteger(user.id) || user.id <= 0 || !Array.isArray(emails) || !emails.some(email => email.verified === true && email.primary === true)) throw new UnauthorizedException();
+      if (!Number.isSafeInteger(user.id) || user.id <= 0 || !Array.isArray(emails)) throw new FalhaOAuthException('identidade');
+      if (!emails.some(email => email.verified === true && email.primary === true)) throw new FalhaOAuthException('email_nao_verificado');
       subject = String(user.id);
     }
     if (subject.length > 255) throw new UnauthorizedException();
     if (pending.link) {
       const current = await auth.session(sessionToken);
-      if (!current || current.usuarioId !== pending.link.id || !await repository.buscarSessao(pending.link.id, pending.link.version)) throw new UnauthorizedException();
+      if (!current || current.usuarioId !== pending.link.id || !await repository.buscarSessao(pending.link.id, pending.link.version)) throw new FalhaOAuthException('sessao_expirada');
       try { await repository.vincularOAuth(current.usuarioId, provider, subject); }
       catch (error) {
         const e = error as { code?: string; cause?: { code?: string } };

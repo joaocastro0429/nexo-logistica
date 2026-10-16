@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { authFixture } from './auth-fixture';
-import { criarOAuth } from '../src/server/oauth';
+import { criarOAuth, FalhaOAuthException } from '../src/server/oauth';
 
 const response = (value: unknown) => new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } });
 test('GitHub: PKCE, state/browser, vínculo autenticado, identidade estável e MFA sem associação automática por e-mail', async () => {
@@ -72,4 +72,17 @@ test('Google: ID token assinado, issuer/audience/nonce e e-mail verificado', asy
       else assert.ok('access' in await result);
     }
   } finally { globalThis.fetch = original; delete process.env.GOOGLE_CLIENT_ID; delete process.env.GOOGLE_CLIENT_SECRET; }
+});
+
+test('OAuth classifica sessão e troca de código sem expor resposta do provedor', async () => {
+  process.env.GITHUB_CLIENT_ID = 'test-client'; process.env.GITHUB_CLIENT_SECRET = 'test-secret';
+  const { repository, redis, auth } = authFixture();
+  const oauth = criarOAuth(repository, redis, auth);
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => response({ error: 'bad_verification_code', error_description: 'detalhe externo que não deve ser propagado' });
+  try {
+    await assert.rejects(oauth.callback('github', undefined, undefined, undefined), error => error instanceof FalhaOAuthException && error.motivo === 'sessao_oauth');
+    const begin = await oauth.start('github');
+    await assert.rejects(oauth.callback('github', new URL(begin.url).searchParams.get('state'), 'codigo-ficticio', begin.browser), error => error instanceof FalhaOAuthException && error.motivo === 'troca_codigo' && !error.message.includes('detalhe externo'));
+  } finally { globalThis.fetch = original; delete process.env.GITHUB_CLIENT_ID; delete process.env.GITHUB_CLIENT_SECRET; }
 });

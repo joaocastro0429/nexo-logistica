@@ -31,9 +31,16 @@ export default function LoginPage() {
     setMfa(params.get('mfa') === '1');
     const semVinculo = params.get('oauth') === 'nao_vinculado';
     setVincularOAuth(semVinculo);
-    if (params.has('oauth')) setErro(semVinculo
-      ? 'Esta conta do provedor ainda não está vinculada ao Nexo. Entre com seu e-mail e senha abaixo para vincular com segurança.'
-      : 'Não foi possível concluir a autorização do provedor. Tente novamente; se persistir, verifique a configuração OAuth.');
+    const mensagensOAuth: Record<string, string> = {
+      nao_vinculado: 'Esta conta do provedor ainda não está vinculada ao Nexo. Entre com seu e-mail e senha abaixo para vincular com segurança.',
+      sessao_oauth: 'A sessão de autorização expirou ou o navegador não enviou o cookie de confirmação. Abra o endereço oficial do Nexo e inicie novamente, sem reutilizar o link anterior.',
+      troca_codigo: 'O provedor recusou a troca do código de autorização. Inicie novamente; se persistir, precisamos revisar as credenciais e o callback do aplicativo.',
+      provedor: 'Não foi possível consultar sua conta no provedor. Confira se autorizou os acessos solicitados e tente novamente.',
+      identidade: 'Não foi possível validar a identidade devolvida pelo provedor. Inicie a autorização novamente.',
+      email_nao_verificado: 'Seu e-mail principal no GitHub precisa estar verificado. Confirme o e-mail nas configurações do GitHub e tente novamente.',
+      sessao_expirada: 'Sua sessão do Nexo expirou durante o vínculo. Entre novamente com senha e repita o vínculo em Segurança da conta.',
+    };
+    if (params.has('oauth')) setErro(mensagensOAuth[params.get('oauth') || ''] || 'Não foi possível concluir a autorização do provedor. Tente novamente.');
     fetch('/api/oauth/providers').then(async response => {
       if (!response.ok) throw new Error();
       const data = await response.json();

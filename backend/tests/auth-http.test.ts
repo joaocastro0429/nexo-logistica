@@ -49,7 +49,7 @@ test('HTTP: cookies HttpOnly, CSRF, refresh, MFA sem acesso prematuro e limite d
   } finally { await app.close(); store.getStore = original; }
 });
 
-import { ContaOAuthNaoVinculadaException } from '../src/server/oauth';
+import { ContaOAuthNaoVinculadaException, FalhaOAuthException } from '../src/server/oauth';
 
 test('OAuth: retorno sem vínculo usa código específico e outras falhas não expõem detalhes', async () => {
   const modulo = require('../src/server/store'); const original = modulo.getStore;
@@ -62,6 +62,9 @@ test('OAuth: retorno sem vínculo usa código específico e outras falhas não e
     const base = await app.getUrl();
     let res = await fetch(`${base}/api/oauth/github/callback`, { redirect: 'manual' });
     assert.equal(res.status, 302); assert.equal(new URL(res.headers.get('location')!).searchParams.get('oauth'), 'nao_vinculado');
+    erro = new FalhaOAuthException('troca_codigo');
+    res = await fetch(`${base}/api/oauth/github/callback`, { redirect: 'manual' });
+    assert.equal(new URL(res.headers.get('location')!).searchParams.get('oauth'), 'troca_codigo');
     erro = new Error('segredo-que-nao-pode-ser-exposto');
     res = await fetch(`${base}/api/oauth/github/callback`, { redirect: 'manual' });
     assert.equal(new URL(res.headers.get('location')!).searchParams.get('oauth'), 'erro');

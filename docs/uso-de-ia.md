@@ -363,3 +363,14 @@ vínculo autenticado nem associadas contas por e-mail. Passaram os 35 testes,
 build e roteiro de navegador com APIs simuladas, preservado nas evidências.
 As skills de verificação, React e deploy já consultadas orientaram esta etapa;
 sem subagentes, mudanças de schema ou alterações de credenciais.
+
+### Diagnóstico de falha persistente OAuth — 16/10/2026
+
+O usuário relatou falha genérica mesmo no domínio canônico. A consulta de logs
+não encontrou erros úteis, pois o callback anterior ocultava todos os detalhes.
+O Codex verificou apenas o código de resposta de uma troca deliberadamente
+inválida no GitHub, sem obter tokens nem exibir credenciais. Acrescentou
+classificação por etapa com mensagens fixas e logs sanitizados. Não confirmou
+uma causa específica do login real nem enfraqueceu o vínculo autenticado.
+Uma tentativa de testes/build falhou por import dinâmico sem extensão no teste;
+o import foi tornado estático, e os 36 testes e build passaram em seguida.

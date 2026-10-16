@@ -316,3 +316,21 @@ confere os códigos de redirecionamento e a ocultação de detalhes de exceçõe
 O roteiro de navegador com APIs simuladas verificou senha, MFA e encaminhamento
 para Segurança; está em [oauth-vinculo-browser.cjs](evidencias/oauth-vinculo-browser.cjs).
 O login real do usuário e a autorização no GitHub não foram executados pelo agente.
+
+### Diagnóstico por etapa OAuth
+
+O callback agora classifica falhas em códigos fixos de sessão OAuth, troca de
+código, consulta ao provedor, validação de identidade, e-mail principal não
+verificado e sessão do Nexo expirada. O frontend fornece orientação específica.
+O log registra somente provedor e classificação; não recebe a exceção bruta,
+state, código, cookies, Client Secret ou tokens. Os controles de vínculo,
+validação de e-mail, state/PKCE e MFA foram preservados.
+
+Nesta investigação, uma requisição com código deliberadamente inválido ao
+GitHub retornou incorrect_client_credentials com segredo fictício e
+bad_verification_code com a credencial local. Isso não equivale a um login
+real, e não identifica sozinho a etapa da falha do usuário na Vercel.
+Após um ajuste de importação no teste novo, npm test aprovou 36 testes e o
+build completo passou. Foram adicionados casos de classificação e ocultação
+de respostas externas. A reprodução da autorização real continua dependendo
+da conta e do consentimento do usuário.
